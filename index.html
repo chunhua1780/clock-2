@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>✈️ 谷歌日历 + 真实实时航班（永久版）</title>
+<title>✈️ 航班助手（优化版）</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -13,6 +13,20 @@ font-family:sans-serif;padding:1.5vw
 }
 body.day{background:#f0f4f8;color:#111}
 
+/* 未起飞：全屏时钟 */
+.full-clock{
+position:fixed;inset:0;
+display:flex;flex-direction:column;
+justify-content:center;align-items:center;
+background:inherit;z-index:999;
+}
+.full-time{font-size:42vw;font-weight:900;line-height:1}
+.full-date{font-size:10vw;font-weight:700;margin-top:2vh}
+.full-flight{font-size:5vw;margin-top:3vh;line-height:1.5;text-align:center}
+.full-notam{font-size:3.5vw;margin-top:2vh;color:#ff9800;line-height:1.4}
+.hidden{display:none}
+
+/* 已起飞：正常布局 */
 .flight-box{height:25vh;background:rgba(255,255,255,.07);border-radius:20px;padding:2.5vw;margin-bottom:1.5vh}
 body.day .flight-box{background:rgba(0,0,0,.04)}
 .flight-title{font-size:2.6vw;font-weight:700;color:#42a5f5}
@@ -40,47 +54,47 @@ body.day .map-box{background:rgba(0,0,0,.04)}
 body.day #flightMap{background:#e8edf3}
 .map-status{text-align:center;font-size:2.2vw;font-weight:700;color:#42a5f5;margin-top:0.8vh}
 
-.full-clock{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:inherit;z-index:999}
-.full-time{font-size:38vw;font-weight:900}
-.full-date{font-size:10vw;font-weight:700;margin-top:2vh}
-.full-weather{font-size:8vw;margin-top:3vh}
-.hidden{display:none}
+.notam-box{margin-top:1vh;font-size:2.2vw;color:#ff9800;line-height:1.4}
 </style>
 </head>
 <body>
 
+<!-- 未起飞：全屏时钟 -->
+<div class="full-clock hidden" id="fullClock">
+  <div class="full-time" id="fullTime">00:00</div>
+  <div class="full-date" id="fullDate"></div>
+  <div class="full-flight" id="fullFlight"></div>
+  <div class="full-notam" id="fullNotam"></div>
+</div>
+
+<!-- 已起飞：正常界面 -->
 <div class="flight-box" id="flightBox">
-<div class="flight-title">✈️ 谷歌日历 · 真实实时航班</div>
-<div id="flightText" class="flight-info">正在读取航班...</div>
-<div class="progress-bg"><div id="flightProgress" class="progress-bar"></div></div>
+  <div class="flight-title">✈️ 航班实时信息</div>
+  <div id="flightText" class="flight-info">正在读取航班...</div>
+  <div class="progress-bg"><div id="flightProgress" class="progress-bar"></div></div>
+  <div class="notam-box" id="notamBox"></div>
 </div>
 
 <div class="weather-row" id="weatherRow">
-<div class="weather-card">
-<div class="airport-title">🛫 起飞机场天气</div>
-<div id="depWeather">加载中...</div>
-</div>
-<div class="weather-card">
-<div class="airport-title">🛬 落地机场天气</div>
-<div id="arrWeather">加载中...</div>
-</div>
+  <div class="weather-card">
+    <div class="airport-title">🛫 出发城市天气</div>
+    <div id="depWeather">加载中...</div>
+  </div>
+  <div class="weather-card">
+    <div class="airport-title">🛬 到达城市天气</div>
+    <div id="arrWeather">加载中...</div>
+  </div>
 </div>
 
 <div class="bottom-area" id="bottomArea">
-<div class="clock-area">
-<div class="time-big" id="showTime">00:00</div>
-<div class="date-big" id="showDate">2025-01-01 星期</div>
-</div>
-<div class="map-box">
-<canvas id="flightMap"></canvas>
-<div class="map-status" id="flyStatus">等待起飞</div>
-</div>
-</div>
-
-<div class="full-clock hidden" id="fullClock">
-<div class="full-time" id="fullTime">00:00</div>
-<div class="full-date" id="fullDate"></div>
-<div class="full-weather" id="fullWeather"></div>
+  <div class="clock-area">
+    <div class="time-big" id="showTime">00:00</div>
+    <div class="date-big" id="showDate">2025-01-01 星期</div>
+  </div>
+  <div class="map-box">
+    <canvas id="flightMap"></canvas>
+    <div class="map-status" id="flyStatus">等待起飞</div>
+  </div>
 </div>
 
 <script>
@@ -147,22 +161,40 @@ function parseFlightInfo(ev) {
   };
 }
 
-// ===================== 天气 =====================
-async function getWeather(lat, lon) {
-  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode`);
+// ===================== 机场 → 城市映射（可扩展） =====================
+const AIRPORT_TO_CITY = {
+  DXB: { city: "Dubai", lat: 25.2048, lon: 55.2708 },
+  AUH: { city: "Abu Dhabi", lat: 24.4539, lon: 54.3773 },
+  // 你可以继续添加：TNK、CKY 等
+  TNK: { city: "Tianjin", lat: 39.1355, lon: 117.4800 },
+  CKY: { city: "Chongqing", lat: 29.5630, lon: 106.5516 }
+};
+
+// ===================== 城市天气（不再只查机场点） =====================
+async function getCityWeather(cityCode) {
+  const loc = AIRPORT_TO_CITY[cityCode] || { lat: 25.25, lon: 55.35 };
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lon}&current=temperature_2m,weathercode`);
   const d = await r.json();
   const c = d.current;
   let icon = "☀️";
   if (c.weathercode > 3) icon = "⛅";
   if (c.weathercode > 48) icon = "🌧️";
   if (c.weathercode > 77) icon = "❄️";
-  return { icon, temp: c.temperature_2m };
+  return { icon, temp: c.temperature_2m, city: loc.city };
 }
 
-const AIRPORT = {
-  DXB: { lat: 25.25, lon: 55.35 },
-  AUH: { lat: 24.47, lon: 54.38 }
-};
+// ===================== NOTAM 航行情报（示例接口） =====================
+async function getNOTAM(airportCode) {
+  try {
+    // 示例：用公共 NOTAM 接口（可替换为你常用的）
+    const res = await fetch(`https://api.notams.faa.gov/v1/notams?airport=${airportCode}`);
+    const data = await res.json();
+    if (data.notams && data.notams.length > 0) {
+      return data.notams.slice(0, 2).map(n => n.text).join(" | ");
+    }
+  } catch (e) {}
+  return "暂无重要 NOTAM";
+}
 
 // ===================== 时钟 =====================
 function updateTime() {
@@ -227,21 +259,34 @@ async function main() {
     const next = getNextFlight(events);
 
     if (!next) {
+      // 无航班：全屏时钟
       document.getElementById("fullClock").classList.remove("hidden");
       document.getElementById("flightBox").classList.add("hidden");
       document.getElementById("weatherRow").classList.add("hidden");
       document.getElementById("bottomArea").classList.add("hidden");
-      const w = await getWeather(25.25, 55.35);
-      document.getElementById("fullWeather").textContent = `${w.icon} ${w.temp}°C`;
+      document.getElementById("fullFlight").textContent = "近期无航班";
+      document.getElementById("fullNotam").textContent = "";
       return;
     }
 
     currentFlight = parseFlightInfo(next);
-    document.getElementById("fullClock").classList.add("hidden");
-    document.getElementById("flightBox").classList.remove("hidden");
-    document.getElementById("weatherRow").classList.remove("hidden");
-    document.getElementById("bottomArea").classList.remove("hidden");
+    const now = new Date();
+    const isDeparted = now >= currentFlight.start;
 
+    // 未起飞：全屏时钟；已起飞：正常界面
+    if (!isDeparted) {
+      document.getElementById("fullClock").classList.remove("hidden");
+      document.getElementById("flightBox").classList.add("hidden");
+      document.getElementById("weatherRow").classList.add("hidden");
+      document.getElementById("bottomArea").classList.add("hidden");
+    } else {
+      document.getElementById("fullClock").classList.add("hidden");
+      document.getElementById("flightBox").classList.remove("hidden");
+      document.getElementById("weatherRow").classList.remove("hidden");
+      document.getElementById("bottomArea").classList.remove("hidden");
+    }
+
+    // 航班列表与实时数据
     const flightList = getFlightList(currentFlight.airline, currentFlight.num);
     realFlightData = null;
     for (const call of flightList) {
@@ -249,21 +294,55 @@ async function main() {
       if (realFlightData) break;
     }
 
-    const status = realFlightData ? "✅ 实时巡航中" : "🟢 待起飞";
-    document.getElementById("flightText").innerHTML = `
+    // Pickup 时间：起飞前 2 小时 15 分
+    const pickup = new Date(currentFlight.start.getTime() - 2 * 60 * 60 * 1000 - 15 * 60 * 1000);
+    const pickupStr = `${pickup.getHours().toString().padStart(2, "0")}:${pickup.getMinutes().toString().padStart(2, "0")}`;
+
+    // 状态
+    const status = realFlightData ? "✅ 实时巡航中" : (isDeparted ? "🟡 已起飞" : "🟢 待起飞");
+
+    // 航班信息文本
+    const flightText = `
 航班：${flightList[0]}<br>
 航线：${currentFlight.dep} → ${currentFlight.arr}<br>
+起飞：${currentFlight.start.toLocaleString()}<br>
+接机：${pickupStr}（提前2h15m）<br>
 状态：${status}<br>
-自动匹配：${flightList.join(" → ")}
+匹配：${flightList.join(" → ")}
     `;
 
-    const depW = await getWeather(AIRPORT[currentFlight.dep].lat, AIRPORT[currentFlight.dep].lon);
-    const arrW = await getWeather(AIRPORT[currentFlight.arr].lat, AIRPORT[currentFlight.arr].lon);
-    document.getElementById("depWeather").innerHTML = `<div class="weather-icon">${depW.icon}</div><div class="temp-huge">${depW.temp}°C</div>`;
-    document.getElementById("arrWeather").innerHTML = `<div class="weather-icon">${arrW.icon}</div><div class="temp-huge">${arrW.temp}°C</div>`;
+    // NOTAM
+    const notamDep = await getNOTAM(currentFlight.dep);
+    const notamArr = await getNOTAM(currentFlight.arr);
+    const notamText = `NOTAM：${currentFlight.dep} ${notamDep} | ${currentFlight.arr} ${notamArr}`;
+
+    // 未起飞：全屏显示
+    if (!isDeparted) {
+      document.getElementById("fullFlight").innerHTML = flightText.replace(/<br>/g, "\n");
+      document.getElementById("fullNotam").textContent = notamText;
+      return;
+    }
+
+    // 已起飞：正常界面
+    document.getElementById("flightText").innerHTML = flightText;
+    document.getElementById("notamBox").textContent = notamText;
+
+    // 城市天气
+    const depW = await getCityWeather(currentFlight.dep);
+    const arrW = await getCityWeather(currentFlight.arr);
+    document.getElementById("depWeather").innerHTML = `
+<div class="weather-icon">${depW.icon}</div>
+<div class="temp-huge">${depW.temp}°C</div>
+<div class="weather-desc">${depW.city}</div>
+    `;
+    document.getElementById("arrWeather").innerHTML = `
+<div class="weather-icon">${arrW.icon}</div>
+<div class="temp-huge">${arrW.temp}°C</div>
+<div class="weather-desc">${arrW.city}</div>
+    `;
 
     drawMap(currentFlight, realFlightData);
-    document.getElementById("flyStatus").textContent = realFlightData ? "实时巡航" : "待起飞";
+    document.getElementById("flyStatus").textContent = realFlightData ? "实时巡航" : "已起飞";
   } catch (e) {
     console.error(e);
   }
@@ -273,7 +352,9 @@ main();
 setInterval(updateTime, 1000);
 setInterval(main, 60000);
 setInterval(() => {
-  if (currentFlight) drawMap(currentFlight, realFlightData);
+  if (currentFlight && new Date() >= currentFlight.start) {
+    drawMap(currentFlight, realFlightData);
+  }
 }, 5000);
 </script>
 </body>
