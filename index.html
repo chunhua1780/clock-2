@@ -1,1 +1,296 @@
 
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>✈️ 谷歌日历航班大屏仪表盘</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{
+background:#020408;color:#fff;
+width:100vw;height:100vh;overflow:hidden;
+font-family:system-ui,sans-serif;padding:1.5vw
+}
+body.day{background:#f0f4f8;color:#111}
+
+/* 顶部 1/4 航班 */
+.flight-box{height:25vh;background:rgba(255,255,255,.07);border-radius:20px;padding:2.5vw;margin-bottom:1.5vh}
+body.day .flight-box{background:rgba(0,0,0,.04)}
+.flight-title{font-size:2.6vw;font-weight:700;color:#42a5f5}
+.flight-info{font-size:3.4vw;font-weight:700;line-height:1.4;margin:1vh 0}
+.progress-bg{width:100%;height:2.4vh;background:rgba(255,255,255,.12);border-radius:999px;margin-top:1.5vh}
+.progress-bar{height:100%;width:0%;background:linear-gradient(90deg,#2196f3,#42a5f5);transition:width 1s}
+
+/* 双机场天气 */
+.weather-row{display:grid;grid-template-columns:1fr 1fr;gap:2vw;height:37vh;margin-bottom:1.5vh}
+.weather-card{background:rgba(255,255,255,.07);border-radius:20px;padding:2.5vw}
+body.day .weather-card{background:rgba(0,0,0,.04)}
+.airport-title{font-size:2.8vw;font-weight:700;color:#81d4fa}
+body.day .airport-title{color:#1976d2}
+.weather-icon{font-size:6vw;margin:1vh 0}
+.temp-huge{font-size:7vw;font-weight:900}
+.weather-desc{font-size:2.4vw;line-height:1.6}
+
+/* 底部：超大时钟 + 右侧1/3飞行地图 */
+.bottom-area{display:grid;grid-template-columns:66% 31%;gap:3%;height:33vh}
+.clock-area{display:flex;flex-direction:column;justify-content:center}
+.time-big{font-size:22vw;font-weight:900;line-height:1}
+.date-big{font-size:5.5vw;font-weight:700;margin-top:1.5vh}
+
+/* 右下角 1/3 飞行地图 */
+.map-box{background:rgba(255,255,255,.07);border-radius:20px;padding:1.2vw}
+body.day .map-box{background:rgba(0,0,0,.04)}
+#flightMap{width:100%;height:84%;background:#0a1128;border-radius:14px}
+body.day #flightMap{background:#e8edf3}
+.map-status{text-align:center;font-size:2.2vw;font-weight:700;color:#42a5f5;margin-top:0.8vh}
+
+/* 无航班 → 全屏超大时钟 */
+.full-clock{position:fixed;top:0;left:0;width:100vw;height:100vh;display:flex;flex-direction:column;justify-content:center;align-items:center;background:inherit;z-index:999}
+.full-time{font-size:38vw;font-weight:900}
+.full-date{font-size:10vw;font-weight:700;margin-top:2vh}
+.full-weather{font-size:8vw;margin-top:3vh}
+.hidden{display:none}
+</style>
+</head>
+<body>
+
+<!-- 顶部航班信息 -->
+<div class="flight-box" id="flightBox">
+<div class="flight-title">✈️ 谷歌日历实时航班</div>
+<div id="flightText" class="flight-info">正在读取你的航班...</div>
+<div class="progress-bg"><div id="flightProgress" class="progress-bar"></div></div>
+</div>
+
+<!-- 双机场天气 -->
+<div class="weather-row" id="weatherRow">
+<div class="weather-card">
+<div class="airport-title">🛫 起飞机场天气</div>
+<div id="depWeather">加载中...</div>
+</div>
+<div class="weather-card">
+<div class="airport-title">🛬 落地机场天气</div>
+<div id="arrWeather">加载中...</div>
+</div>
+</div>
+
+<!-- 底部时钟 + 飞行地图 -->
+<div class="bottom-area" id="bottomArea">
+<div class="clock-area">
+<div class="time-big" id="showTime">00:00</div>
+<div class="date-big" id="showDate">2025-01-01 星期</div>
+</div>
+<div class="map-box">
+<canvas id="flightMap"></canvas>
+<div class="map-status" id="flyStatus">巡航中</div>
+</div>
+</div>
+
+<!-- 无航班全屏时钟 -->
+<div class="full-clock hidden" id="fullClock">
+<div class="full-time" id="fullTime">00:00</div>
+<div class="full-date" id="fullDate">2025-01-01 星期</div>
+<div class="full-weather" id="fullWeather">加载天气...</div>
+</div>
+
+<script>
+// ===================== 已填入你的谷歌日历真实地址 =====================
+const GOOGLE_ICAL_URL = "https://calendar.google.com/calendar/ical/chunhua1799%40gmail.com/private-6c1d0e7f274a03239756025c8465fdd2/basic.ics";
+const CORS_PROXY = "https://api.allorigins.win/get?url=";
+
+// 天气图标（苹果风格）
+function getWeatherIcon(code){
+if(code <= 1) return "☀️";
+if(code <= 3) return "⛅";
+if(code <= 48) return "☁️";
+if(code <= 67) return "🌧️";
+if(code <= 77) return "❄️";
+if(code <= 99) return "⛈️";
+return "🌤️";
+}
+
+// 获取天气
+async function getWeather(lat, lon){
+const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,relative_humidity_2m,weathercode&timezone=auto`;
+const r = await fetch(url);
+const d = await r.json();
+const c = d.current;
+return { icon:getWeatherIcon(c.weathercode), temp:c.temperature_2m, hum:c.relative_humidity_2m };
+}
+
+// 机场坐标
+const AIRPORT = {
+"DXB":{lat:25.25, lon:55.35, name:"迪拜国际机场"},
+"AUH":{lat:24.47, lon:54.38, name:"阿布扎比机场"},
+"PEK":{lat:40.08, lon:116.58, name:"北京首都"},
+"PVG":{lat:31.14, lon:121.29, name:"上海浦东"},
+"CAN":{lat:23.18, lon:113.23, name:"广州白云"},
+"SIN":{lat:1.36, lon:103.99, name:"新加坡樟宜"},
+"BKK":{lat:13.69, lon:100.75, name:"曼谷素万那普"},
+"LHR":{lat:51.47, lon:-0.46, name:"伦敦希思罗"},
+"JFK":{lat:40.64, lon:-73.78, name:"纽约肯尼迪"}
+};
+
+// 解析 iCal
+function parseICal(text){
+const lines = text.split(/\r?\n/);
+const events = [];
+let event = null;
+lines.forEach(line => {
+if(line.startsWith("BEGIN:VEVENT")) event = {};
+if(line.startsWith("END:VEVENT")){ events.push(event); event = null; }
+if(!event) return;
+if(line.startsWith("SUMMARY:")) event.title = line.slice(8).replace(/\\,/g,",");
+if(line.startsWith("DTSTART:")) event.start = new Date(line.slice(8));
+if(line.startsWith("DTEND:")) event.end = new Date(line.slice(8));
+if(line.startsWith("LOCATION:")) event.loc = line.slice(9).replace(/\\,/g,",");
+if(line.startsWith("DESCRIPTION:")) event.desc = line.slice(12).replace(/\\,/g,",");
+});
+return events;
+}
+
+// 提取航班
+function getFlight(events){
+const now = new Date();
+const flightEvents = events.filter(e => 
+e.title && /Flight|航班|[A-Z]{2,3}\s*\d{3,4}|[A-Z]{3}\s*→\s*[A-Z]{3}/.test(e.title)
+&& e.start > now
+);
+if(flightEvents.length === 0) return null;
+flightEvents.sort((a,b) => a.start - b.start);
+const e = flightEvents[0];
+
+// 提取航班号
+const fm = e.title.match(/([A-Z]{2,3})\s*(\d{3,4})/i) || e.desc?.match(/([A-Z]{2,3})\s*(\d{3,4})/i);
+const flightNo = fm ? fm[1].toUpperCase() + fm[2] : "未知";
+
+// 提取航线
+const rm = e.title.match(/([A-Z]{3})\s*[-→]\s*([A-Z]{3})/i) || e.desc?.match(/([A-Z]{3})\s*[-→]\s*([A-Z]{3})/i);
+const dep = rm ? rm[1].toUpperCase() : "DXB";
+const arr = rm ? rm[2].toUpperCase() : "AUH";
+
+const isFly = now > e.start && now < e.end;
+const progress = isFly ? Math.min(100, Math.round(((now - e.start) / (e.end - e.start)) * 100)) : 0;
+
+return {
+flightNo, dep, arr,
+depTime:e.start.toLocaleString(),
+arrTime:e.end.toLocaleString(),
+isFly, progress
+};
+}
+
+// 读取谷歌日历
+async function loadMyFlight(){
+try{
+const res = await fetch(CORS_PROXY + encodeURIComponent(GOOGLE_ICAL_URL));
+const data = await res.json();
+const events = parseICal(data.contents);
+return getFlight(events);
+}catch(e){
+console.error("读取日历失败", e);
+return null;
+}
+}
+
+// 时钟
+function updateTime(){
+const now = new Date();
+const h = String(now.getHours()).padStart(2,"0");
+const m = String(now.getMinutes()).padStart(2,"0");
+const week = ["周日","周一","周二","周三","周四","周五","周六"];
+const date = `${now.getFullYear()}年${String(now.getMonth()+1).padStart(2,"0")}月${String(now.getDate()).padStart(2,"0")}日 ${week[now.getDay()]}`;
+document.getElementById("showTime").innerText = `${h}:${m}`;
+document.getElementById("showDate").innerText = date;
+document.getElementById("fullTime").innerText = `${h}:${m}`;
+document.getElementById("fullDate").innerText = date;
+document.body.classList.toggle("day", now.getHours() >= 6 && now.getHours() < 18);
+}
+
+// 飞行地图
+const canvas = document.getElementById("flightMap");
+const ctx = canvas.getContext("2d");
+function resize(){ canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+resize();
+window.addEventListener("resize", resize);
+
+function drawMap(flight){
+if(!flight || !flight.isFly || !canvas.width) return;
+const w = canvas.width, h = canvas.height;
+ctx.clearRect(0,0,w,h);
+ctx.fillStyle = document.body.classList.contains("day") ? "#e8edf3" : "#0a1128";
+ctx.fillRect(0,0,w,h);
+
+const sx = w*0.15, sy = h*0.75;
+const ex = w*0.85, ey = h*0.2;
+const px = sx + (ex-sx)*flight.progress/100;
+const py = sy + (ey-sy)*flight.progress/100;
+
+// 航线
+ctx.strokeStyle = "#42a5f5"; ctx.lineWidth = 2; ctx.setLineDash([5,3]);
+ctx.beginPath(); ctx.moveTo(sx,sy); ctx.lineTo(ex,ey); ctx.stroke(); ctx.setLineDash([]);
+
+// 起点 终点
+ctx.fillStyle = "#4ade80"; ctx.beginPath(); ctx.arc(sx,sy,6,0,Math.PI*2); ctx.fill();
+ctx.fillStyle = "#f87171"; ctx.beginPath(); ctx.arc(ex,ey,6,0,Math.PI*2); ctx.fill();
+
+// 飞机
+ctx.save(); ctx.translate(px,py);
+const angle = Math.atan2(ey-sy,ex-sx); ctx.rotate(angle);
+ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(10,0); ctx.lineTo(-6,-6); ctx.lineTo(-6,6); ctx.closePath(); ctx.fill(); ctx.restore();
+
+// 十字定位
+ctx.strokeStyle = "#facc15"; ctx.lineWidth = 1;
+ctx.beginPath(); ctx.moveTo(px-12,py); ctx.lineTo(px+12,py); ctx.moveTo(px,py-12); ctx.lineTo(px,py+12); ctx.stroke();
+}
+
+// 主程序
+async function main(){
+updateTime();
+const flight = await loadMyFlight();
+const hasFlight = !!flight;
+
+document.getElementById("fullClock").classList.toggle("hidden", hasFlight);
+document.getElementById("flightBox").classList.toggle("hidden", !hasFlight);
+document.getElementById("weatherRow").classList.toggle("hidden", !hasFlight);
+document.getElementById("bottomArea").classList.toggle("hidden", !hasFlight);
+
+if(hasFlight){
+document.getElementById("flightText").innerHTML = `
+航班：${flight.flightNo}<br>
+${AIRPORT[flight.dep]?.name || flight.dep} → ${AIRPORT[flight.arr]?.name || flight.arr}<br>
+状态：${flight.isFly ? "✅ 巡航中" : "🟢 待起飞"}
+`;
+document.getElementById("flightProgress").style.width = flight.progress + "%";
+document.getElementById("flyStatus").innerText = flight.isFly ? "巡航中" : "待起飞";
+
+const depCoord = AIRPORT[flight.dep] || {lat:25.25, lon:55.35};
+const arrCoord = AIRPORT[flight.arr] || {lat:24.47, lon:54.38};
+const depW = await getWeather(depCoord.lat, depCoord.lon);
+const arrW = await getWeather(arrCoord.lat, arrCoord.lon);
+
+document.getElementById("depWeather").innerHTML = `
+<div class="weather-icon">${depW.icon}</div>
+<div class="temp-huge">${depW.temp}°C</div>
+<div class="weather-desc">湿度 ${depW.hum}%</div>
+`;
+document.getElementById("arrWeather").innerHTML = `
+<div class="weather-icon">${arrW.icon}</div>
+<div class="temp-huge">${arrW.temp}°C</div>
+<div class="weather-desc">湿度 ${arrW.hum}%</div>
+`;
+
+drawMap(flight);
+} else {
+const homeW = await getWeather(25.25, 55.35);
+document.getElementById("fullWeather").innerHTML = `<span class="weather-icon">${homeW.icon}</span> ${homeW.temp}°C 湿度 ${homeW.hum}%`;
+}
+}
+
+main();
+setInterval(updateTime, 1000);
+setInterval(main, 60000);
+setInterval(() => { loadMyFlight().then(f => drawMap(f)); }, 2000);
+</script>
+</body>
+</html>
