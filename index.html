@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
-<title>✈️ 谷歌日历·实时航班大屏（最终完美版）</title>
+<title>✈️ 谷歌日历 + 真实实时航班（永久版）</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{
@@ -50,7 +50,7 @@ body.day #flightMap{background:#e8edf3}
 <body>
 
 <div class="flight-box" id="flightBox">
-<div class="flight-title">✈️ 谷歌日历 · 实时航班动态</div>
+<div class="flight-title">✈️ 谷歌日历 · 真实实时航班</div>
 <div id="flightText" class="flight-info">正在读取航班...</div>
 <div class="progress-bg"><div id="flightProgress" class="progress-bar"></div></div>
 </div>
@@ -84,185 +84,197 @@ body.day #flightMap{background:#e8edf3}
 </div>
 
 <script>
-// ===================== 你的谷歌日历（已填好） =====================
+// ===================== 谷歌日历地址 =====================
 const GOOGLE_ICAL_URL = "https://calendar.google.com/calendar/ical/chunhua1799%40gmail.com/private-6c1d0e7f274a03239756025c8465fdd2/basic.ics";
 const CORS_PROXY = "https://api.allorigins.win/get?url=";
 
-// ===================== 真实实时航班（最简单可靠版） =====================
-async function getRealtimeFlight(callSign){
-  try{
-    const r = await fetch(`https://api.airplanes.live/v2/callsign/${callSign}`);
-    const d = await r.json();
-    if(d.ac && d.ac.length>0) return d.ac[0];
-  }catch(e){}
+// ===================== 【真实实时航班接口】无TOKEN无密钥 =====================
+async function getLiveFlight(callSign) {
+  try {
+    const res = await fetch(`https://api.airplanes.live/v2/callsign/${callSign}`);
+    const data = await res.json();
+    if (data.ac && data.ac.length > 0) {
+      return data.ac[0];
+    }
+  } catch (e) {}
   return null;
 }
 
 // ===================== 航班号自动处理：8439 → 439 =====================
-function tryFlightNumbers(airline, num){
+function getFlightList(airline, num) {
   const list = [];
-  list.push(airline+num);
-  if(num.length===4) list.push(airline + num.substring(1));
+  list.push(airline + num);
+  if (num.length === 4) {
+    list.push(airline + num.substring(1));
+  }
   return list;
 }
 
-// ===================== 解析日历 =====================
-function parseIcal(text){
+// ===================== 日历解析 =====================
+function parseIcal(text) {
   const events = [];
-  let ev=null;
-  text.split(/\n/).forEach(line=>{
-    if(line.startsWith("BEGIN:VEVENT")) ev={};
-    if(line.startsWith("END:VEVENT")){events.push(ev);ev=null}
-    if(!ev)return;
-    if(line.startsWith("SUMMARY:")) ev.title=line.slice(8).replace(/\\,/g,",");
-    if(line.startsWith("DTSTART:")) ev.start=new Date(line.slice(8));
-    if(line.startsWith("DTEND:")) ev.end=new Date(line.slice(8));
+  let ev = null;
+  text.split(/\n/).forEach(line => {
+    if (line.startsWith("BEGIN:VEVENT")) ev = {};
+    if (line.startsWith("END:VEVENT")) { events.push(ev); ev = null; }
+    if (!ev) return;
+    if (line.startsWith("SUMMARY:")) ev.title = line.slice(8).replace(/\\,/g, ",");
+    if (line.startsWith("DTSTART:")) ev.start = new Date(line.slice(8));
+    if (line.startsWith("DTEND:")) ev.end = new Date(line.slice(8));
   });
   return events;
 }
 
-// 获取最近航班
-function getNextFlight(events){
-  const now=new Date();
-  const f=events.filter(e=>e.title&&/[A-Z]{2}\s*\d{3,4}/.test(e.title)&&e.start>now);
-  if(f.length===0)return null;
-  return f.sort((a,b)=>a.start-b.start)[0];
+function getNextFlight(events) {
+  const now = new Date();
+  const flights = events.filter(e =>
+    e.title && /[A-Z]{2}\s*\d{3,4}/.test(e.title) && e.start > now
+  );
+  if (flights.length === 0) return null;
+  return flights.sort((a, b) => a.start - b.start)[0];
 }
 
-// 提取航班信息
-function parseFlight(ev){
-  const m=ev.title.match(/([A-Z]{2})\s*(\d{3,4})/);
-  const r=ev.title.match(/([A-Z]{3})\s*[-→]\s*([A-Z]{3})/);
+function parseFlightInfo(ev) {
+  const match = ev.title.match(/([A-Z]{2})\s*(\d{3,4})/);
+  const route = ev.title.match(/([A-Z]{3})\s*[-→]\s*([A-Z]{3})/);
   return {
-    airline:m?m[1]:"EK",
-    num:m?m[2]:"",
-    dep:r?r[1]:"DXB",
-    arr:r?r[2]:"AUH",
-    start:ev.start,
-    end:ev.end
+    airline: match ? match[1] : "EK",
+    num: match ? match[2] : "",
+    dep: route ? route[1] : "DXB",
+    arr: route ? route[2] : "AUH",
+    start: ev.start,
+    end: ev.end
   };
 }
 
 // ===================== 天气 =====================
-async function getWeather(lat,lon){
-  const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode`);
-  const d=await r.json();
-  const c=d.current;
-  let icon="☀️";
-  if(c.weathercode>3)icon="⛅";
-  if(c.weathercode>48)icon="🌧️";
-  if(c.weathercode>77)icon="❄️";
-  return {icon,temp:c.temperature_2m};
+async function getWeather(lat, lon) {
+  const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weathercode`);
+  const d = await r.json();
+  const c = d.current;
+  let icon = "☀️";
+  if (c.weathercode > 3) icon = "⛅";
+  if (c.weathercode > 48) icon = "🌧️";
+  if (c.weathercode > 77) icon = "❄️";
+  return { icon, temp: c.temperature_2m };
 }
 
-const AIRPORT={DXB:{lat:25.25,lon:55.35},AUH:{lat:24.47,lon:54.38}};
+const AIRPORT = {
+  DXB: { lat: 25.25, lon: 55.35 },
+  AUH: { lat: 24.47, lon: 54.38 }
+};
 
 // ===================== 时钟 =====================
-function updateTime(){
-  const n=new Date();
-  const h=String(n.getHours()).padStart(2,"0");
-  const m=String(n.getMinutes()).padStart(2,"0");
-  const w=["周日","周一","周二","周三","周四","周五","周六"];
-  const date=`${n.getFullYear()}年${n.getMonth()+1}月${n.getDate()}日 ${w[n.getDay()]}`;
-  document.getElementById("showTime").textContent=`${h}:${m}`;
-  document.getElementById("showDate").textContent=date;
-  document.getElementById("fullTime").textContent=`${h}:${m}`;
-  document.getElementById("fullDate").textContent=date;
-  document.body.classList.toggle("day",n.getHours()>=6&&n.getHours()<18);
+function updateTime() {
+  const n = new Date();
+  const h = String(n.getHours()).padStart(2, "0");
+  const m = String(n.getMinutes()).padStart(2, "0");
+  const w = ["周日", "周一", "周二", "周三", "周四", "周五", "周六"];
+  const date = `${n.getFullYear()}年${n.getMonth() + 1}月${n.getDate()}日 ${w[n.getDay()]}`;
+  document.getElementById("showTime").textContent = `${h}:${m}`;
+  document.getElementById("showDate").textContent = date;
+  document.getElementById("fullTime").textContent = `${h}:${m}`;
+  document.getElementById("fullDate").textContent = date;
+  document.body.classList.toggle("day", n.getHours() >= 6 && n.getHours() < 18);
 }
 
 // ===================== 飞行地图 =====================
-const canvas=document.getElementById("flightMap");
-const ctx=canvas.getContext("2d");
-function resize(){canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight;}
-resize();window.addEventListener("resize",resize);
+const canvas = document.getElementById("flightMap");
+const ctx = canvas.getContext("2d");
+function resize() { canvas.width = canvas.offsetWidth; canvas.height = canvas.offsetHeight; }
+resize();
+window.addEventListener("resize", resize);
 
-function drawMap(flight,realtime){
-  const w=canvas.width,h=canvas.height;
-  ctx.clearRect(0,0,w,h);
-  ctx.fillStyle=document.body.classList.contains("day")?"#e8edf3":"#0a1128";
-  ctx.fillRect(0,0,w,h);
-  if(!flight)return;
+function drawMap(flight, realData) {
+  const w = canvas.width, h = canvas.height;
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = document.body.classList.contains("day") ? "#e8edf3" : "#0a1128";
+  ctx.fillRect(0, 0, w, h);
+  if (!flight) return;
 
-  const sx=w*.15,sy=h*.75,ex=w*.85,ey=h*.2;
-  const now=Date.now(),st=flight.start.getTime(),ed=flight.end.getTime();
-  const prog=Math.min(100,Math.max(0,((now-st)/(ed-st))*100));
-  const px=sx+(ex-sx)*prog/100,py=sy+(ey-sy)*prog/100;
+  const sx = w * 0.15, sy = h * 0.75, ex = w * 0.85, ey = h * 0.2;
+  const now = Date.now(), st = flight.start.getTime(), ed = flight.end.getTime();
+  const prog = Math.min(100, Math.max(0, ((now - st) / (ed - st)) * 100));
+  const px = sx + (ex - sx) * prog / 100;
+  const py = sy + (ey - sy) * prog / 100;
 
-  ctx.strokeStyle="#42a5f5";ctx.lineWidth=2;ctx.setLineDash([6,4]);
-  ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(ex,ey);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle = "#42a5f5"; ctx.lineWidth = 2; ctx.setLineDash([6, 4]);
+  ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey); ctx.stroke(); ctx.setLineDash([]);
 
-  ctx.fillStyle="#2ecc71";ctx.beginPath();ctx.arc(sx,sy,5,0,Math.PI*2);ctx.fill();
-  ctx.fillStyle="#e74c3c";ctx.beginPath();ctx.arc(ex,ey,5,0,Math.PI*2);ctx.fill();
+  ctx.fillStyle = "#2ecc71"; ctx.beginPath(); ctx.arc(sx, sy, 5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = "#e74c3c"; ctx.beginPath(); ctx.arc(ex, ey, 5, 0, Math.PI * 2); ctx.fill();
 
-  ctx.save();ctx.translate(px,py);
-  const a=Math.atan2(ey-sy,ex-sx);ctx.rotate(a);
-  ctx.fillStyle="#fff";ctx.beginPath();ctx.moveTo(8,0);ctx.lineTo(-5,-5);ctx.lineTo(-5,5);ctx.closePath();ctx.fill();ctx.restore();
+  ctx.save(); ctx.translate(px, py);
+  const angle = Math.atan2(ey - sy, ex - sx); ctx.rotate(angle);
+  ctx.fillStyle = "#fff"; ctx.beginPath(); ctx.moveTo(8, 0); ctx.lineTo(-5, -5); ctx.lineTo(-5, 5); ctx.closePath(); ctx.fill(); ctx.restore();
 
-  ctx.strokeStyle="#ffd338";ctx.lineWidth=1;
-  ctx.beginPath();ctx.moveTo(px-15,py);ctx.lineTo(px+15,py);ctx.moveTo(px,py-15);ctx.lineTo(px,py+15);ctx.stroke();
+  ctx.strokeStyle = "#ffd338"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(px - 15, py); ctx.lineTo(px + 15, py); ctx.moveTo(px, py - 15); ctx.lineTo(px, py + 15); ctx.stroke();
 
-  document.getElementById("flightProgress").style.width=prog+"%";
-  return prog;
+  document.getElementById("flightProgress").style.width = prog + "%";
 }
 
 // ===================== 主程序 =====================
-let currentFlight=null;
-let realData=null;
+let currentFlight = null;
+let realFlightData = null;
 
-async function main(){
+async function main() {
   updateTime();
-  try{
-    const res=await fetch(CORS_PROXY+encodeURIComponent(GOOGLE_ICAL_URL));
-    const data=await res.json();
-    const events=parseIcal(data.contents);
-    const next=getNextFlight(events);
+  try {
+    const res = await fetch(CORS_PROXY + encodeURIComponent(GOOGLE_ICAL_URL));
+    const data = await res.json();
+    const events = parseIcal(data.contents);
+    const next = getNextFlight(events);
 
-    if(!next){
+    if (!next) {
       document.getElementById("fullClock").classList.remove("hidden");
       document.getElementById("flightBox").classList.add("hidden");
       document.getElementById("weatherRow").classList.add("hidden");
       document.getElementById("bottomArea").classList.add("hidden");
-      const w=await getWeather(25.25,55.35);
-      document.getElementById("fullWeather").textContent=`${w.icon} ${w.temp}°C`;
+      const w = await getWeather(25.25, 55.35);
+      document.getElementById("fullWeather").textContent = `${w.icon} ${w.temp}°C`;
       return;
     }
 
-    currentFlight=parseFlight(next);
+    currentFlight = parseFlightInfo(next);
     document.getElementById("fullClock").classList.add("hidden");
     document.getElementById("flightBox").classList.remove("hidden");
     document.getElementById("weatherRow").classList.remove("hidden");
     document.getElementById("bottomArea").classList.remove("hidden");
 
-    const tries=tryFlightNumbers(currentFlight.airline,currentFlight.num);
-    realData=null;
-    for(const c of tries){
-      realData=await getRealtimeFlight(c);
-      if(realData)break;
+    const flightList = getFlightList(currentFlight.airline, currentFlight.num);
+    realFlightData = null;
+    for (const call of flightList) {
+      realFlightData = await getLiveFlight(call);
+      if (realFlightData) break;
     }
 
-    const status=realData?"✅ 实时巡航中":"🟢 待起飞";
-    document.getElementById("flightText").innerHTML=`
-航班：${tries[0]}<br>
+    const status = realFlightData ? "✅ 实时巡航中" : "🟢 待起飞";
+    document.getElementById("flightText").innerHTML = `
+航班：${flightList[0]}<br>
 航线：${currentFlight.dep} → ${currentFlight.arr}<br>
 状态：${status}<br>
-试错：${tries.join(" → ")}
+自动匹配：${flightList.join(" → ")}
     `;
 
-    const depW=await getWeather(AIRPORT[currentFlight.dep].lat,AIRPORT[currentFlight.dep].lon);
-    const arrW=await getWeather(AIRPORT[currentFlight.arr].lat,AIRPORT[currentFlight.arr].lon);
-    document.getElementById("depWeather").innerHTML=`<div class="weather-icon">${depW.icon}</div><div class="temp-huge">${depW.temp}°C</div>`;
-    document.getElementById("arrWeather").innerHTML=`<div class="weather-icon">${arrW.icon}</div><div class="temp-huge">${arrW.temp}°C</div>`;
+    const depW = await getWeather(AIRPORT[currentFlight.dep].lat, AIRPORT[currentFlight.dep].lon);
+    const arrW = await getWeather(AIRPORT[currentFlight.arr].lat, AIRPORT[currentFlight.arr].lon);
+    document.getElementById("depWeather").innerHTML = `<div class="weather-icon">${depW.icon}</div><div class="temp-huge">${depW.temp}°C</div>`;
+    document.getElementById("arrWeather").innerHTML = `<div class="weather-icon">${arrW.icon}</div><div class="temp-huge">${arrW.temp}°C</div>`;
 
-    drawMap(currentFlight,realData);
-    document.getElementById("flyStatus").textContent=realData?"实时巡航":"待起飞";
-  }catch(e){console.error(e);}
+    drawMap(currentFlight, realFlightData);
+    document.getElementById("flyStatus").textContent = realFlightData ? "实时巡航" : "待起飞";
+  } catch (e) {
+    console.error(e);
+  }
 }
 
 main();
-setInterval(updateTime,1000);
-setInterval(main,60000);
-setInterval(()=>{if(currentFlight)drawMap(currentFlight,realData);},5000);
+setInterval(updateTime, 1000);
+setInterval(main, 60000);
+setInterval(() => {
+  if (currentFlight) drawMap(currentFlight, realFlightData);
+}, 5000);
 </script>
 </body>
 </html>
