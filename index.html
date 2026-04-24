@@ -2,41 +2,78 @@
 <html lang="zh">
 <head>
 <meta charset="UTF-8">
-<title>Pilot Clock API HUB</title>
+<title>Pilot Dashboard V3</title>
 
 <style>
-body {margin:0;background:black;color:white;font-family:Arial;}
-#app {height:100vh;display:flex;flex-direction:column;}
-#top {height:25%;display:flex;border-bottom:1px solid #333;}
-#bottom {height:75%;display:flex;justify-content:center;align-items:center;flex-direction:column;}
-
-.panel{flex:1;padding:10px;}
-#clock{font-size:140px;font-weight:bold;}
-#weather{font-size:26px;}
-
-.control-btn{
-position:absolute;width:100px;height:100px;
-background:rgba(255,255,255,0.08);
-border-radius:15px;
-display:flex;justify-content:center;align-items:center;
-font-size:30px;opacity:0;transition:.3s;
+body{
+margin:0;
+background:black;
+color:white;
+font-family:Arial;
+overflow:hidden;
 }
+
+/* 主容器 */
+#app{
+width:100vw;
+height:100vh;
+position:relative;
+}
+
+/* 可拖拽模块 */
+.widget{
+position:absolute;
+width:280px;
+min-height:120px;
+background:rgba(255,255,255,0.06);
+border:1px solid rgba(255,255,255,0.1);
+border-radius:12px;
+padding:10px;
+cursor:grab;
+user-select:none;
+touch-action:none;
+}
+
+.widget:active{cursor:grabbing;}
+
+#clock{font-size:80px;font-weight:bold;}
+#weather{font-size:20px;}
+#flightInfo{font-size:16px;white-space:pre-line;}
+
+/* 控制按钮 */
+.control-btn{
+position:absolute;
+width:80px;
+height:80px;
+background:rgba(255,255,255,0.08);
+border-radius:14px;
+display:flex;
+justify-content:center;
+align-items:center;
+font-size:26px;
+opacity:0;
+transition:0.3s;
+}
+
 #settingsBtn{top:20px;right:20px;}
 #flightBtn{bottom:20px;right:20px;}
 
+/* 弹窗 */
 .modal{
-position:absolute;top:50%;left:50%;
+position:absolute;
+top:50%;
+left:50%;
 transform:translate(-50%,-50%);
-background:#111;padding:20px;
+background:#111;
+padding:20px;
 border:1px solid #444;
-width:360px;display:none;z-index:10;
-max-height:80vh;overflow:auto;
+display:none;
+width:320px;
+z-index:10;
 }
 
 input{width:100%;margin:5px 0;}
 button{margin-top:10px;}
-
-.section-title{margin-top:10px;color:#aaa;font-size:12px;}
 </style>
 </head>
 
@@ -44,124 +81,77 @@ button{margin-top:10px;}
 
 <div id="app">
 
-<div id="top">
-<div class="panel" id="flightInfo">无航班</div>
-<div class="panel" id="destWeather">--</div>
-<div class="panel" id="notam">--</div>
-</div>
-
-<div id="bottom">
+<!-- 时钟 -->
+<div class="widget" id="clockBox">
 <div id="clock"></div>
-<div id="weather">Loading...</div>
+</div>
+
+<!-- 天气 -->
+<div class="widget" id="weatherBox">
+<div id="weather">Dubai 30°C</div>
+</div>
+
+<!-- 航班 -->
+<div class="widget" id="flightBox">
+<div id="flightInfo">No Flight</div>
 </div>
 
 </div>
 
-<!-- 控制 -->
+<!-- 控制按钮 -->
 <div id="settingsBtn" class="control-btn">⚙️</div>
 <div id="flightBtn" class="control-btn">✈️</div>
 
 <!-- 设置 -->
 <div id="settingsModal" class="modal">
+<h3>设置</h3>
 
-<h3>⚙️ 系统 + API HUB</h3>
+字体大小：
+<input type="range" id="fontSize" min="40" max="160">
 
-<div class="section-title">UI</div>
-
-字体大小
-<input type="range" id="fontSize" min="80" max="200">
-
-颜色
-<input type="color" id="color">
-
-<hr>
-
-<div class="section-title">🌤 Weather API</div>
-OpenWeather Key
-<input id="weatherKey">
-
-<hr>
-
-<div class="section-title">✈️ Flight API (Aviationstack)</div>
-API Key
-<input id="flightKey">
-
-<hr>
-
-<div class="section-title">🛰 OpenSky API</div>
-Client ID
-<input id="openSkyId">
-
-Client Secret
-<input id="openSkySecret">
-
-<hr>
-
-<div class="section-title">📅 Google Calendar</div>
-Client ID
-<input id="googleId">
-
-Client Secret
-<input id="googleSecret">
-
-<hr>
-
-<div class="section-title">🧩 Custom APIs（预留扩展）</div>
-Custom API 1
-<input id="custom1">
-
-Custom API 2
-<input id="custom2">
-
-<button onclick="saveAll()">💾 保存全部配置</button>
-
+<button onclick="saveSettings()">保存</button>
 </div>
 
 <!-- 航班 -->
 <div id="flightModal" class="modal">
+<h3>航班</h3>
 
-<h3>✈️ 航班录入</h3>
-
-航班号
+航班号：
 <input id="fNo">
 
-出发
+出发：
 <input id="fFrom">
 
-目的地
+目的：
 <input id="fTo">
 
-起飞
+起飞：
 <input type="time" id="fDep">
 
-落地
+落地：
 <input type="time" id="fArr">
 
-<button onclick="saveFlight()">保存航班</button>
-
+<button onclick="saveFlight()">保存</button>
 </div>
 
 <script>
 
 /* =========================
-   核心 CONFIG HUB
+   时钟（无秒）
 ========================= */
-
-function getConfig(){
-return JSON.parse(localStorage.getItem("CONFIG_HUB")||"{}");
-}
-
-function saveConfig(cfg){
-localStorage.setItem("CONFIG_HUB",JSON.stringify(cfg));
-}
+setInterval(()=>{
+let d=new Date();
+clock.innerText =
+d.getHours().toString().padStart(2,'0')+":"+
+d.getMinutes().toString().padStart(2,'0');
+},1000);
 
 /* =========================
-   UI控制（点击唤醒）
+   隐形控制逻辑
 ========================= */
-
 let timer;
 
-document.body.onclick=()=>{
+document.body.addEventListener("click",()=>{
 settingsBtn.style.opacity=1;
 flightBtn.style.opacity=1;
 
@@ -170,23 +160,13 @@ timer=setTimeout(()=>{
 settingsBtn.style.opacity=0;
 flightBtn.style.opacity=0;
 },5000);
-};
+});
 
 /* =========================
-   时钟
+   打开面板
 ========================= */
-
-setInterval(()=>{
-clock.innerText=new Date().toLocaleTimeString("en-GB",{hour12:false});
-},1000);
-
-/* =========================
-   设置打开
-========================= */
-
 settingsBtn.onclick=e=>{
 e.stopPropagation();
-loadConfigToUI();
 settingsModal.style.display="block";
 };
 
@@ -196,123 +176,24 @@ flightModal.style.display="block";
 };
 
 /* =========================
-   保存全部API
+   设置
 ========================= */
-
-function saveAll(){
-
-let cfg={
-ui:{
-fontSize:fontSize.value,
-color:color.value
-},
-
-weather:{
-key:weatherKey.value
-},
-
-flight:{
-key:flightKey.value
-},
-
-opensky:{
-id:openSkyId.value,
-secret:openSkySecret.value
-},
-
-google:{
-id:googleId.value,
-secret:googleSecret.value
-},
-
-custom:{
-c1:custom1.value,
-c2:custom2.value
-}
-};
-
-saveConfig(cfg);
+function saveSettings(){
+localStorage.setItem("fontSize",fontSize.value);
 applyUI();
-checkAPI();
 settingsModal.style.display="none";
 }
 
-/* =========================
-   读取UI
-========================= */
-
-function loadConfigToUI(){
-let c=getConfig();
-
-fontSize.value=c.ui?.fontSize||140;
-color.value=c.ui?.color||"#ffffff";
-
-weatherKey.value=c.weather?.key||"";
-flightKey.value=c.flight?.key||"";
-
-openSkyId.value=c.opensky?.id||"";
-openSkySecret.value=c.opensky?.secret||"";
-
-googleId.value=c.google?.id||"";
-googleSecret.value=c.google?.secret||"";
-
-custom1.value=c.custom?.c1||"";
-custom2.value=c.custom?.c2||"";
-}
-
-/* =========================
-   UI应用
-========================= */
-
 function applyUI(){
-let c=getConfig();
-
-clock.style.fontSize=(c.ui?.fontSize||140)+"px";
-document.body.style.color=c.ui?.color||"#fff";
-}
-
-/* =========================
-   API状态检测
-========================= */
-
-function checkAPI(){
-let c=getConfig();
-
-weather.innerText = c.weather?.key ? "Weather Ready" : "Weather NOT SET";
-}
-
-/* =========================
-   天气（预留真实API）
-========================= */
-
-async function loadWeather(){
-
-let c=getConfig();
-if(!c.weather?.key){
-weather.innerText="No Weather API";
-return;
-}
-
-// 示例（迪拜）
-try{
-let r=await fetch(
-`https://api.openweathermap.org/data/2.5/weather?q=Dubai&appid=${c.weather.key}&units=metric`
-);
-
-let d=await r.json();
-
-weather.innerText=
-`Dubai ${d.main.temp}°C`;
-
-}catch{
-weather.innerText="Weather Error";
-}
+let f=localStorage.getItem("fontSize")||80;
+document.querySelectorAll(".widget").forEach(w=>{
+w.style.fontSize=f+"px";
+});
 }
 
 /* =========================
    航班
 ========================= */
-
 function saveFlight(){
 
 let no=fNo.value;
@@ -326,32 +207,90 @@ dep:fDep.value,
 arr:fArr.value
 };
 
-localStorage.setItem("FLIGHT",JSON.stringify(f));
+localStorage.setItem("flight",JSON.stringify(f));
 loadFlight();
 
 flightModal.style.display="none";
 }
 
 function loadFlight(){
-
-let f=JSON.parse(localStorage.getItem("FLIGHT"));
-if(!f) return;
+let f=JSON.parse(localStorage.getItem("flight"));
+if(!f)return;
 
 flightInfo.innerText=
 `${f.no}
 ${f.from} → ${f.to}
-${f.dep} - ${f.arr}`;
+DEP ${f.dep}
+ARR ${f.arr}`;
+}
 
+/* =========================
+   拖拽系统（核心）
+========================= */
+let drag=null,ox=0,oy=0;
+
+function enableDrag(el){
+
+el.addEventListener("mousedown",start);
+el.addEventListener("touchstart",start);
+
+function start(e){
+drag=el;
+
+let x=e.touches?e.touches[0].clientX:e.clientX;
+let y=e.touches?e.touches[0].clientY:e.clientY;
+
+let rect=el.getBoundingClientRect();
+
+ox=x-rect.left;
+oy=y-rect.top;
+
+document.addEventListener("mousemove",move);
+document.addEventListener("touchmove",move);
+document.addEventListener("mouseup",end);
+document.addEventListener("touchend",end);
+}
+
+function move(e){
+if(!drag)return;
+
+let x=e.touches?e.touches[0].clientX:e.clientX;
+let y=e.touches?e.touches[0].clientY:e.clientY;
+
+drag.style.left=(x-ox)+"px";
+drag.style.top=(y-oy)+"px";
+}
+
+function end(){
+
+localStorage.setItem(drag.id+"_x",drag.style.left);
+localStorage.setItem(drag.id+"_y",drag.style.top);
+
+drag=null;
+}
+}
+
+/* =========================
+   恢复布局
+========================= */
+function restore(){
+document.querySelectorAll(".widget").forEach(w=>{
+let x=localStorage.getItem(w.id+"_x");
+let y=localStorage.getItem(w.id+"_y");
+
+if(x) w.style.left=x;
+if(y) w.style.top=y;
+
+enableDrag(w);
+});
 }
 
 /* =========================
    初始化
 ========================= */
-
 applyUI();
-checkAPI();
-loadWeather();
 loadFlight();
+restore();
 
 </script>
 
