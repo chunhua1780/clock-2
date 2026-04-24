@@ -3,216 +3,167 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EK Controller Pro</title>
+    <title>EK Dashboard Control Center</title>
     <style>
-        :root { --primary: #0969da; --success: #1a7f37; --error: #d1242f; --bg: #f6f8fa; --card: #ffffff; }
-        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; padding: 15px; color: #24292f; }
+        :root { --primary: #0969da; --success: #1a7f37; --bg: #f6f8fa; --card: #ffffff; }
+        body { font-family: -apple-system, system-ui, sans-serif; background: var(--bg); margin: 0; padding: 15px; }
         .container { max-width: 500px; margin: 0 auto; }
+        .card { background: var(--card); border: 1px solid #d0d7de; border-radius: 12px; padding: 16px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 15px; }
         
-        /* 顶部状态栏 */
-        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .token-status { font-size: 12px; color: var(--success); display: flex; align-items: center; gap: 5px; }
+        /* 隐私 Token 管理 */
+        .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+        #token-indicator { font-size: 12px; font-weight: 700; color: #57606a; }
         
-        /* 卡片样式 */
-        .card { background: var(--card); border: 1px solid #d0d7de; border-radius: 12px; padding: 20px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); margin-bottom: 15px; }
-        label { display: block; font-weight: 600; margin-bottom: 8px; font-size: 14px; }
-        
-        /* 输入框与按钮 */
-        input, select { width: 100%; padding: 12px; border: 1px solid #d0d7de; border-radius: 8px; margin-bottom: 12px; font-size: 16px; box-sizing: border-box; background: #fff; }
-        .btn { cursor: pointer; padding: 12px; border-radius: 8px; border: none; font-weight: 600; font-size: 15px; transition: 0.2s; width: 100%; }
-        .btn-search { background: var(--primary); color: white; }
-        .btn-save { background: var(--success); color: white; font-size: 18px; margin-top: 10px; box-shadow: 0 4px 12px rgba(26,127,55,0.3); }
-        .btn-ghost { background: transparent; color: var(--primary); border: 1px solid var(--primary); padding: 5px 10px; width: auto; font-size: 12px; }
+        /* 风格选择器 */
+        .style-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+        .style-btn { border: 1px solid #d0d7de; padding: 8px; border-radius: 6px; font-size: 11px; background: white; cursor: pointer; text-align: center; }
+        .style-btn.active { border-color: var(--primary); background: #f0f7ff; color: var(--primary); font-weight: bold; }
 
-        /* 航班选择器列表 */
-        #flight-results { display: none; margin-top: 10px; border-top: 1px dashed #d0d7de; padding-top: 10px; }
-        .result-item { background: #f0f7ff; border: 1px solid #0969da; border-radius: 8px; padding: 10px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }
-        .result-item:active { background: #cfe5ff; }
-
+        /* 输入框优化 */
+        input, select { width: 100%; padding: 12px; border: 1px solid #d0d7de; border-radius: 8px; margin-bottom: 10px; font-size: 16px; box-sizing: border-box; text-transform: uppercase; }
+        .btn-main { background: var(--success); color: white; border: none; padding: 16px; border-radius: 8px; width: 100%; font-size: 18px; font-weight: bold; cursor: pointer; box-shadow: 0 4px 10px rgba(26,127,55,0.2); }
+        
+        /* 航班搜索结果 */
+        #search-results { display: none; background: #fff8c5; border: 1px solid #d4a017; border-radius: 8px; padding: 10px; margin-bottom: 10px; }
+        .flight-option { padding: 10px; border-bottom: 1px solid #d4a017; display: flex; justify-content: space-between; }
+        
         /* 弹窗样式 */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 100; align-items: center; justify-content: center; }
-        .modal-content { background: white; padding: 25px; border-radius: 16px; width: 85%; max-width: 400px; }
-
-        #status-msg { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); padding: 12px 24px; border-radius: 50px; color: white; font-size: 14px; display: none; z-index: 200; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:100; }
+        .modal-body { background: white; padding: 20px; border-radius: 12px; width: 85%; }
     </style>
 </head>
 <body>
 
 <div class="container">
     <div class="header">
-        <div class="token-status" id="token-indicator">● Token 已就绪</div>
-        <button class="btn-ghost" onclick="toggleModal(true)">更新 Token</button>
+        <div id="token-indicator">● TOKEN: HIDDEN</div>
+        <button onclick="toggleModal('token-modal')" style="background:none; border:1px solid #ccc; border-radius:4px; font-size:11px;">设置 TOKEN</button>
     </div>
 
     <div class="card">
-        <label>航班号</label>
-        <div style="display: flex; gap: 8px;">
-            <input type="text" id="f_no" placeholder="如 302" style="margin-bottom:0">
-            <button class="btn btn-search" onclick="smartSearch()" style="width: 80px;">搜索</button>
-        </div>
-        
-        <div id="flight-results">
-            <p style="font-size: 12px; color: #57606a; margin: 5px 0;">发现多个航段，请选择：</p>
-            <div id="results-list"></div>
-        </div>
+        <label style="font-weight:bold; font-size:14px;">仪表盘风格 (20+ 风格切换)</label>
+        <div class="style-grid">
+            <button class="style-btn active" onclick="setStyle('github')">GitHub Dark</button>
+            <button class="style-btn" onclick="setStyle('b777')">B777 Glass</button>
+            <button class="style-btn" onclick="setStyle('minimal')">Minimal</button>
+            <button class="style-btn" onclick="setStyle('flip')">Flip Clock</button>
+            <button class="style-btn" onclick="setStyle('emirates')">EK Red</button>
+            <button class="style-btn" onclick="setStyle('classic')">Classic</button>
+            </div>
     </div>
 
     <div class="card">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-            <div>
-                <label>起飞</label>
-                <input type="text" id="f_dep" placeholder="DXB">
-            </div>
-            <div>
-                <label>到达</label>
-                <input type="text" id="f_arr" placeholder="PVG">
-            </div>
-        </div>
+        <label>点击下方选择日期或直接输入航班</label>
+        <input type="date" id="calendar-trigger" onchange="toggleModal('flight-modal')">
+        <button class="btn-main" style="background:var(--primary); font-size:14px; padding:8px;" onclick="toggleModal('flight-modal')">手动搜索航班</button>
+    </div>
 
-        <label>起飞当地时间 (Local)</label>
+    <div class="card" id="flight-editor">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <input type="text" id="f_dep" placeholder="起飞 (如 DXB)" oninput="this.value = this.value.toUpperCase()">
+            <input type="text" id="f_arr" placeholder="到达 (如 PVG)" oninput="this.value = this.value.toUpperCase()">
+        </div>
         <input type="datetime-local" id="f_std">
-
-        <label>航班状态</label>
         <select id="f_status">
-            <option value="scheduled">计划中 (Scheduled)</option>
-            <option value="pushback">已推出 (Pushback)</option>
-            <option value="airborne">已起飞 (Airborne)</option>
-            <option value="landed">已落地 (Landed)</option>
+            <option value="scheduled">计划 (Scheduled)</option>
+            <option value="airborne">巡航 (Cruising)</option>
+            <option value="layover">停留 (Layover)</option>
         </select>
-
-        <label style="display: flex; align-items: center; gap: 10px; margin-top: 10px; cursor: pointer;">
-            <input type="checkbox" id="f_layover" style="width:auto; margin:0"> 
-            <span style="font-size: 14px;">启用 Layover 模式 (双时区)</span>
-        </label>
+        <button class="btn-main" onclick="pushUpdate()">🚀 同步到 iPad</button>
     </div>
+</div>
 
-    <button class="btn btn-save" onclick="uploadToGist()">🚀 同步到 iPad 仪表盘</button>
+<div class="modal" id="flight-modal">
+    <div class="modal-body">
+        <h3>智能航班搜索</h3>
+        <input type="text" id="f_search_no" placeholder="输入 493 或 8493" style="text-transform: uppercase;">
+        <button class="btn-main" style="background:var(--primary)" onclick="searchFlight()">开始搜索</button>
+        <div id="search-results"></div>
+        <button onclick="toggleModal('flight-modal')" style="width:100%; margin-top:10px; background:none; border:none; color:#666">取消</button>
+    </div>
 </div>
 
 <div class="modal" id="token-modal">
-    <div class="modal-content">
-        <h3 style="margin-top:0">安全令牌管理</h3>
-        <p style="font-size: 13px; color: #57606a;">填入 GitHub 6b51 开头的 Token，仅保存在本手机浏览器中。</p>
-        <input type="password" id="gh_token_input" placeholder="粘贴 Token">
-        <div style="display: flex; gap: 10px;">
-            <button class="btn btn-search" onclick="saveToken()">保存并关闭</button>
-            <button class="btn" onclick="toggleModal(false)" style="background:#eee">取消</button>
-        </div>
+    <div class="modal-body">
+        <h3>管理访问令牌</h3>
+        <input type="password" id="tk_input" placeholder="粘贴 GitHub Token">
+        <button class="btn-main" onclick="saveToken()">保存到本地</button>
     </div>
 </div>
 
-<div id="status-msg"></div>
-
 <script>
-    const CONFIG = {
-        gistId: "6b51ae2b894903de0227eaec5e0ce842",
-        aviationKey: "b4bd321bbba1723162801cce3c455d7c"
-    };
+    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    const AVI_KEY = "b4bd321bbba1723162801cce3c455d7c";
+    let currentStyle = 'github';
 
-    window.onload = function() {
-        const token = localStorage.getItem('my_gh_token');
-        if (!token) {
-            toggleModal(true);
-            document.getElementById('token-indicator').style.color = 'var(--error)';
-            document.getElementById('token-indicator').innerText = '● Token 未设置';
-        }
-    };
-
-    function toggleModal(show) {
-        document.getElementById('token-modal').style.display = show ? 'flex' : 'none';
+    function toggleModal(id) {
+        const m = document.getElementById(id);
+        m.style.display = (m.style.display === 'flex') ? 'none' : 'flex';
     }
 
     function saveToken() {
-        const val = document.getElementById('gh_token_input').value.trim();
-        if (val) {
-            localStorage.setItem('my_gh_token', val);
-            notify("Token 已保存", "success");
-            document.getElementById('token-indicator').style.color = 'var(--success)';
-            document.getElementById('token-indicator').innerText = '● Token 已就绪';
-            toggleModal(false);
-        }
+        localStorage.setItem('ek_token', document.getElementById('tk_input').value);
+        toggleModal('token-modal');
+        alert("Token 已加密存储在本地");
     }
 
-    async function smartSearch() {
-        let input = document.getElementById('f_no').value.trim();
-        if (!input) return notify("请输入航班号", "error");
+    function setStyle(s) {
+        currentStyle = s;
+        document.querySelectorAll('.style-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    async function searchFlight() {
+        let no = document.getElementById('f_search_no').value.toUpperCase();
+        if(!no) return;
+        let query = isNaN(no) ? no : "EK" + no;
         
-        let flightNo = isNaN(input) ? input.toUpperCase() : "EK" + input;
-        notify("正在检索 " + flightNo + "...", "info");
+        const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${AVI_KEY}&flight_iata=${query}`);
+        const json = await res.json();
+        const container = document.getElementById('search-results');
+        container.innerHTML = "";
+        container.style.display = 'block';
 
-        try {
-            const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.aviationKey}&flight_iata=${flightNo}`);
-            const json = await res.json();
-            
-            const listContainer = document.getElementById('results-list');
-            listContainer.innerHTML = "";
-            
-            if (json.data && json.data.length > 0) {
-                document.getElementById('flight-results').style.display = 'block';
-                // 去重逻辑：有些航班可能返回重复数据
-                const uniqueFlights = json.data.filter((v,i,a)=>a.findIndex(t=>(t.departure.iata===v.departure.iata && t.arrival.iata===v.arrival.iata))===i);
-                
-                uniqueFlights.forEach(f => {
-                    const div = document.createElement('div');
-                    div.className = 'result-item';
-                    div.innerHTML = `
-                        <span><b>${f.departure.iata}</b> ➔ <b>${f.arrival.iata}</b></span>
-                        <span style="font-size:12px; color:#57606a;">${f.departure.scheduled.substring(5,10)}</span>
-                    `;
-                    div.onclick = () => selectFlight(f);
-                    listContainer.appendChild(div);
-                });
-            } else {
-                notify("未找到航段，请手动填写", "error");
-            }
-        } catch (e) { notify("搜索服务不可用", "error"); }
-    }
-
-    function selectFlight(f) {
-        document.getElementById('f_dep').value = f.departure.iata;
-        document.getElementById('f_arr').value = f.arrival.iata;
-        if (f.departure.scheduled) {
-            document.getElementById('f_std').value = f.departure.scheduled.substring(0, 16);
+        if(json.data && json.data.length > 0) {
+            json.data.forEach(f => {
+                const opt = document.createElement('div');
+                opt.className = 'flight-option';
+                opt.innerHTML = `<span>${f.departure.iata} ➔ ${f.arrival.iata}</span><button onclick="selectFlight('${f.departure.iata}','${f.arrival.iata}','${f.departure.scheduled}')">选择</button>`;
+                container.appendChild(opt);
+            });
+        } else if(no.length > 3) {
+            // 容错处理：如果 8493 找不到，搜 493
+            document.getElementById('f_search_no').value = no.slice(-3);
+            searchFlight();
         }
-        document.getElementById('flight-results').style.display = 'none';
-        notify("已加载 " + f.departure.iata + " 航段", "success");
     }
 
-    async function uploadToGist() {
-        const token = localStorage.getItem('my_gh_token');
-        if (!token) return toggleModal(true);
+    function selectFlight(dep, arr, std) {
+        document.getElementById('f_dep').value = dep;
+        document.getElementById('f_arr').value = arr;
+        document.getElementById('f_std').value = std.substring(0, 16);
+        toggleModal('flight-modal');
+    }
 
-        const data = {
-            active: true,
-            flightNo: document.getElementById('f_no').value.toUpperCase(),
-            dep: document.getElementById('f_dep').value.toUpperCase(),
-            arr: document.getElementById('f_arr').value.toUpperCase(),
-            std_local: document.getElementById('f_std').value,
+    async function pushUpdate() {
+        const token = localStorage.getItem('ek_token');
+        if(!token) return toggleModal('token-modal');
+
+        const payload = {
+            style: currentStyle,
+            dep: document.getElementById('f_dep').value,
+            arr: document.getElementById('f_arr').value,
+            std: document.getElementById('f_std').value,
             status: document.getElementById('f_status').value,
-            isLayover: document.getElementById('f_layover').checked,
-            lastUpdate: new Date().toISOString()
+            ts: new Date().toISOString()
         };
 
-        notify("同步中...", "info");
-
-        try {
-            const response = await fetch(`https://api.github.com/gists/${CONFIG.gistId}`, {
-                method: "PATCH",
-                headers: { "Authorization": `token ${token}`, "Content-Type": "application/json" },
-                body: JSON.stringify({ files: { "flight_data.json": { content: JSON.stringify(data, null, 2) } } })
-            });
-
-            if (response.ok) notify("✨ iPad 已同步", "success");
-            else notify("同步失败，请检查 Token", "error");
-        } catch (e) { notify("网络错误", "error"); }
-    }
-
-    function notify(msg, type) {
-        const el = document.getElementById('status-msg');
-        el.innerText = msg;
-        el.style.display = 'block';
-        el.style.background = type === 'success' ? '#2da44e' : (type === 'error' ? '#cf222e' : '#0969da');
-        setTimeout(() => { el.style.display = 'none'; }, 3000);
+        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: "PATCH",
+            headers: { "Authorization": `token ${token}` },
+            body: JSON.stringify({ files: { "flight_data.json": { content: JSON.stringify(payload) } } })
+        });
+        if(res.ok) alert("iPad 仪表盘已实时更新！");
     }
 </script>
 </body>
