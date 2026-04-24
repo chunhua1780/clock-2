@@ -8,7 +8,7 @@
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { background: #0a0e1a; color: #fff; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; padding: 16px; min-height: 100vh; }
         .container { max-width: 800px; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; }
+        .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 16px; flex-wrap: wrap; gap: 12px; }
         h1 { font-size: 1.6rem; color: #ffaa44; }
         button { background: #2a6faa; border: none; padding: 6px 14px; border-radius: 30px; color: white; font-size: 0.8rem; cursor: pointer; }
         .mode-bar { display: flex; gap: 10px; background: #11161f; border-radius: 60px; padding: 6px; margin-bottom: 20px; }
@@ -46,6 +46,7 @@
 <div class="container">
     <div class="header">
         <h1>🎨 时钟配置工坊</h1>
+        <button id="tokenSettingsBtn" class="btn-secondary">🔑 设置Token</button>
         <button id="saveCloudBtn" class="btn-primary">💾 保存到云端</button>
     </div>
     <div class="mode-bar">
@@ -54,14 +55,12 @@
         <div class="mode-btn" data-mode="triple">三屏</div>
     </div>
     <div id="canvas" class="canvas">
-        <!-- 单屏布局 -->
         <div id="singleLayout" class="layout">
             <div class="draggable" data-type="clock" style="left:50%; top:35%;"><div class="clock-text">12:34</div></div>
             <div class="draggable" data-type="date" style="left:50%; top:75%;"><div class="date-text">Monday, 1 January</div></div>
             <div class="draggable" data-type="city" style="left:50%; top:85%;"><div class="city-text">Dubai, United Arab Emirates</div></div>
             <div class="draggable" data-type="weather" style="left:85%; top:15%;"><div class="weather-text">☀️ 32°C</div></div>
         </div>
-        <!-- 双屏布局 -->
         <div id="dualLayout" class="layout hidden">
             <div class="dual-container">
                 <div class="panel" id="dualLeft">
@@ -79,7 +78,6 @@
             </div>
             <div class="info-badge" style="position:absolute; top:10px; left:10px; right:10px; background:rgba(0,0,0,0.5); border-radius:20px; padding:5px; text-align:center; font-size:0.6rem;">✈️ 计划航班 · DXB → PVG</div>
         </div>
-        <!-- 三屏布局 -->
         <div id="tripleLayout" class="layout hidden">
             <div class="triple-container">
                 <div class="triple-top">✈️ 飞行中 · DXB → PVG</div>
@@ -124,21 +122,55 @@
     let currentMode = "single";
     let selectedElement = null;
     let dragData = null, pinchData = null;
-    let config = { single: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"75%", fontSize:"16px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:true }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } }, dual: { left: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } }, right: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } } }, triple: { left: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } }, right: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } } }, colors: { dayBg: "#e8f0f5", dayText: "#1a2a3a", nightBg: "#0a0e1a", nightText: "#eef2f5", accentColor: "#ffaa44" } };
 
-    const canvas = document.getElementById('canvas');
-    const singleLayout = document.getElementById('singleLayout');
-    const dualLayout = document.getElementById('dualLayout');
-    const tripleLayout = document.getElementById('tripleLayout');
-    const modeBtns = document.querySelectorAll('.mode-btn');
-    const fontSlider = document.getElementById('fontSlider');
-    const letterSpacingSlider = document.getElementById('letterSpacingSlider');
-    const lineHeightSlider = document.getElementById('lineHeightSlider');
-    const xSlider = document.getElementById('xSlider');
-    const ySlider = document.getElementById('ySlider');
-    const hideCityCheckbox = document.getElementById('hideCityCheckbox');
+    // Token 管理
+    let userToken = localStorage.getItem('github_token') || '';
+    function setToken(token) {
+        userToken = token;
+        if (token) localStorage.setItem('github_token', token);
+        else localStorage.removeItem('github_token');
+    }
+    function getRequestHeaders() {
+        if (userToken) {
+            return { 'Authorization': `token ${userToken}`, 'Content-Type': 'application/json' };
+        }
+        return { 'Content-Type': 'application/json' };
+    }
 
-    function getCurrentDraggables() { if (currentMode === "single") return Array.from(document.querySelectorAll('#singleLayout .draggable')); if (currentMode === "dual") return Array.from(document.querySelectorAll('#dualLayout .draggable')); return Array.from(document.querySelectorAll('#tripleLayout .draggable')); }
+    function showToast(msg) {
+        let t = document.createElement('div'); t.className = 'toast'; t.innerText = msg;
+        document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+    }
+
+    function showTokenModal() {
+        let modal = document.createElement('div'); modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal">
+                <div class="modal-title">🔑 GitHub Token 设置</div>
+                <input type="password" id="tokenInput" placeholder="输入你的 Personal Access Token" value="${userToken}">
+                <div style="font-size:0.7rem; color:#88aacc; margin-bottom:8px;">留空则使用公开访问（仅限公开Gist）</div>
+                <button id="saveTokenBtn" class="btn-primary">💾 保存 Token</button>
+                <button id="closeTokenBtn" class="btn-secondary">取消</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('saveTokenBtn').onclick = () => {
+            let newToken = document.getElementById('tokenInput').value.trim();
+            setToken(newToken);
+            showToast("✅ Token 已保存");
+            modal.remove();
+        };
+        document.getElementById('closeTokenBtn').onclick = () => modal.remove();
+    }
+    document.getElementById('tokenSettingsBtn').onclick = showTokenModal;
+
+    // 获取当前所有可拖拽元素
+    function getCurrentDraggables() {
+        if (currentMode === "single") return Array.from(document.querySelectorAll('#singleLayout .draggable'));
+        if (currentMode === "dual") return Array.from(document.querySelectorAll('#dualLayout .draggable'));
+        return Array.from(document.querySelectorAll('#tripleLayout .draggable'));
+    }
+
     function updateSlidersFromElement(el) {
         if (!el) return;
         let left = parseFloat(el.style.left), top = parseFloat(el.style.top);
@@ -156,39 +188,226 @@
         getCurrentDraggables().forEach(d => d.style.border = 'none');
         el.style.border = '2px solid #ffaa44'; el.style.borderRadius = '12px';
     }
+
     function applyToElement() {
         if (!selectedElement) return;
-        let x = parseFloat(xSlider.value), y = parseFloat(ySlider.value), fontSize = parseFloat(fontSlider.value), letterSpacing = parseFloat(letterSpacingSlider.value), lineHeight = parseFloat(lineHeightSlider.value);
+        let x = parseFloat(xSlider.value), y = parseFloat(ySlider.value);
+        let fontSize = parseFloat(fontSlider.value);
+        let letterSpacing = parseFloat(letterSpacingSlider.value);
+        let lineHeight = parseFloat(lineHeightSlider.value);
         selectedElement.style.left = x + '%'; selectedElement.style.top = y + '%';
         let textElem = selectedElement.querySelector('.clock-text, .date-text, .city-text, .weather-text');
-        if (textElem) { textElem.style.fontSize = fontSize + 'px'; textElem.style.letterSpacing = letterSpacing + 'px'; textElem.style.lineHeight = lineHeight; }
-        document.getElementById('xVal').innerText = Math.round(x); document.getElementById('yVal').innerText = Math.round(y); document.getElementById('fontSizeVal').innerText = fontSize; document.getElementById('letterSpacingVal').innerText = letterSpacing; document.getElementById('lineHeightVal').innerText = lineHeight;
+        if (textElem) {
+            textElem.style.fontSize = fontSize + 'px';
+            textElem.style.letterSpacing = letterSpacing + 'px';
+            textElem.style.lineHeight = lineHeight;
+        }
+        document.getElementById('xVal').innerText = Math.round(x);
+        document.getElementById('yVal').innerText = Math.round(y);
+        document.getElementById('fontSizeVal').innerText = fontSize;
+        document.getElementById('letterSpacingVal').innerText = letterSpacing;
+        document.getElementById('lineHeightVal').innerText = lineHeight;
     }
-    xSlider.addEventListener('input', applyToElement); ySlider.addEventListener('input', applyToElement); fontSlider.addEventListener('input', applyToElement); letterSpacingSlider.addEventListener('input', applyToElement); lineHeightSlider.addEventListener('input', applyToElement);
-    hideCityCheckbox.addEventListener('change', (e) => { let cityElems = document.querySelectorAll(`#${currentMode}Layout .draggable[data-type="city"]`); cityElems.forEach(el => el.style.display = e.target.checked ? 'none' : 'block'); });
-    function initTouch(el) { el.addEventListener('touchstart', onTouchStart, { passive: false }); el.addEventListener('touchmove', onTouchMove, { passive: false }); el.addEventListener('touchend', onTouchEnd); }
+
+    const fontSlider = document.getElementById('fontSlider');
+    const letterSpacingSlider = document.getElementById('letterSpacingSlider');
+    const lineHeightSlider = document.getElementById('lineHeightSlider');
+    const xSlider = document.getElementById('xSlider');
+    const ySlider = document.getElementById('ySlider');
+    const hideCityCheckbox = document.getElementById('hideCityCheckbox');
+
+    xSlider.addEventListener('input', applyToElement);
+    ySlider.addEventListener('input', applyToElement);
+    fontSlider.addEventListener('input', applyToElement);
+    letterSpacingSlider.addEventListener('input', applyToElement);
+    lineHeightSlider.addEventListener('input', applyToElement);
+    hideCityCheckbox.addEventListener('change', (e) => {
+        let cityElems = document.querySelectorAll(`#${currentMode}Layout .draggable[data-type="city"]`);
+        cityElems.forEach(el => el.style.display = e.target.checked ? 'none' : 'block');
+    });
+
+    // 触摸拖拽与缩放
+    function initTouch(el) {
+        el.addEventListener('touchstart', onTouchStart, { passive: false });
+        el.addEventListener('touchmove', onTouchMove, { passive: false });
+        el.addEventListener('touchend', onTouchEnd);
+    }
     let internalDrag = null, internalPinch = null;
-    function onTouchStart(e) { e.stopPropagation(); let touches = e.touches; if (touches.length === 1) { selectedElement = e.currentTarget; updateSlidersFromElement(selectedElement); let rect = selectedElement.getBoundingClientRect(), canvasRect = canvas.getBoundingClientRect(), leftPct = parseFloat(selectedElement.style.left), topPct = parseFloat(selectedElement.style.top); internalDrag = { startX: touches[0].clientX, startY: touches[0].clientY, leftPct: isNaN(leftPct) ? 50 : leftPct, topPct: isNaN(topPct) ? 50 : topPct, canvasW: canvasRect.width, canvasH: canvasRect.height }; } else if (touches.length === 2) { let dx = touches[0].clientX - touches[1].clientX, dy = touches[0].clientY - touches[1].clientY, dist = Math.hypot(dx, dy); let target = e.currentTarget, txt = target.querySelector('.clock-text, .date-text, .city-text, .weather-text'), curFont = txt ? parseInt(window.getComputedStyle(txt).fontSize) : 36; internalPinch = { startDist: dist, startFont: curFont, target: target }; } }
-    function onTouchMove(e) { e.preventDefault(); let touches = e.touches; if (internalDrag && touches.length === 1) { let dx = touches[0].clientX - internalDrag.startX, dy = touches[0].clientY - internalDrag.startY; let newLeft = internalDrag.leftPct + (dx / internalDrag.canvasW) * 100, newTop = internalDrag.topPct + (dy / internalDrag.canvasH) * 100; newLeft = Math.min(95, Math.max(5, newLeft)); newTop = Math.min(95, Math.max(5, newTop)); if (selectedElement) { selectedElement.style.left = newLeft + '%'; selectedElement.style.top = newTop + '%'; xSlider.value = newLeft; document.getElementById('xVal').innerText = Math.round(newLeft); ySlider.value = newTop; document.getElementById('yVal').innerText = Math.round(newTop); } } else if (internalPinch && touches.length === 2) { let dx = touches[0].clientX - touches[1].clientX, dy = touches[0].clientY - touches[1].clientY, newDist = Math.hypot(dx, dy), scale = newDist / internalPinch.startDist, newFont = internalPinch.startFont * scale; newFont = Math.min(500, Math.max(12, newFont)); let txt = internalPinch.target.querySelector('.clock-text, .date-text, .city-text, .weather-text'); if (txt) { txt.style.fontSize = newFont + 'px'; if (selectedElement === internalPinch.target) { fontSlider.value = newFont; document.getElementById('fontSizeVal').innerText = newFont; } } } }
-    function onTouchEnd(e) { internalDrag = null; internalPinch = null; }
-    function bindAllTouch() { getCurrentDraggables().forEach(el => { el.removeEventListener('touchstart', onTouchStart); el.removeEventListener('touchmove', onTouchMove); el.removeEventListener('touchend', onTouchEnd); initTouch(el); }); }
+    const canvas = document.getElementById('canvas');
+    function onTouchStart(e) {
+        e.stopPropagation();
+        let touches = e.touches;
+        if (touches.length === 1) {
+            selectedElement = e.currentTarget;
+            updateSlidersFromElement(selectedElement);
+            let rect = selectedElement.getBoundingClientRect();
+            let canvasRect = canvas.getBoundingClientRect();
+            let leftPct = parseFloat(selectedElement.style.left);
+            let topPct = parseFloat(selectedElement.style.top);
+            internalDrag = {
+                startX: touches[0].clientX, startY: touches[0].clientY,
+                leftPct: isNaN(leftPct) ? 50 : leftPct,
+                topPct: isNaN(topPct) ? 50 : topPct,
+                canvasW: canvasRect.width, canvasH: canvasRect.height
+            };
+        } else if (touches.length === 2) {
+            let dx = touches[0].clientX - touches[1].clientX;
+            let dy = touches[0].clientY - touches[1].clientY;
+            let dist = Math.hypot(dx, dy);
+            let target = e.currentTarget;
+            let txt = target.querySelector('.clock-text, .date-text, .city-text, .weather-text');
+            let curFont = txt ? parseInt(window.getComputedStyle(txt).fontSize) : 36;
+            internalPinch = { startDist: dist, startFont: curFont, target: target };
+        }
+    }
+
+    function onTouchMove(e) {
+        e.preventDefault();
+        let touches = e.touches;
+        if (internalDrag && touches.length === 1) {
+            let dx = touches[0].clientX - internalDrag.startX;
+            let dy = touches[0].clientY - internalDrag.startY;
+            let newLeft = internalDrag.leftPct + (dx / internalDrag.canvasW) * 100;
+            let newTop = internalDrag.topPct + (dy / internalDrag.canvasH) * 100;
+            newLeft = Math.min(95, Math.max(5, newLeft));
+            newTop = Math.min(95, Math.max(5, newTop));
+            if (selectedElement) {
+                selectedElement.style.left = newLeft + '%';
+                selectedElement.style.top = newTop + '%';
+                xSlider.value = newLeft; document.getElementById('xVal').innerText = Math.round(newLeft);
+                ySlider.value = newTop; document.getElementById('yVal').innerText = Math.round(newTop);
+            }
+        } else if (internalPinch && touches.length === 2) {
+            let dx = touches[0].clientX - touches[1].clientX;
+            let dy = touches[0].clientY - touches[1].clientY;
+            let newDist = Math.hypot(dx, dy);
+            let scale = newDist / internalPinch.startDist;
+            let newFont = internalPinch.startFont * scale;
+            newFont = Math.min(500, Math.max(12, newFont));
+            let txt = internalPinch.target.querySelector('.clock-text, .date-text, .city-text, .weather-text');
+            if (txt) {
+                txt.style.fontSize = newFont + 'px';
+                if (selectedElement === internalPinch.target) {
+                    fontSlider.value = newFont;
+                    document.getElementById('fontSizeVal').innerText = newFont;
+                }
+            }
+        }
+    }
+
+    function onTouchEnd(e) {
+        internalDrag = null;
+        internalPinch = null;
+    }
+
+    function bindAllTouch() {
+        getCurrentDraggables().forEach(el => {
+            el.removeEventListener('touchstart', onTouchStart);
+            el.removeEventListener('touchmove', onTouchMove);
+            el.removeEventListener('touchend', onTouchEnd);
+            initTouch(el);
+        });
+    }
+
+    // 模式切换
     function switchMode(mode) {
         currentMode = mode;
-        singleLayout.classList.add('hidden'); dualLayout.classList.add('hidden'); tripleLayout.classList.add('hidden');
-        if (mode === 'single') singleLayout.classList.remove('hidden'); else if (mode === 'dual') dualLayout.classList.remove('hidden'); else tripleLayout.classList.remove('hidden');
-        modeBtns.forEach(btn => btn.classList.toggle('active', btn.dataset.mode === mode));
-        bindAllTouch(); selectedElement = null;
+        document.getElementById('singleLayout').classList.add('hidden');
+        document.getElementById('dualLayout').classList.add('hidden');
+        document.getElementById('tripleLayout').classList.add('hidden');
+        if (mode === 'single') document.getElementById('singleLayout').classList.remove('hidden');
+        else if (mode === 'dual') document.getElementById('dualLayout').classList.remove('hidden');
+        else document.getElementById('tripleLayout').classList.remove('hidden');
+        document.querySelectorAll('.mode-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.mode === mode);
+        });
+        bindAllTouch();
+        selectedElement = null;
         let cityElems = document.querySelectorAll(`#${mode}Layout .draggable[data-type="city"]`);
-        if (mode === 'single') cityElems.forEach(el => el.style.display = 'none'); else cityElems.forEach(el => el.style.display = 'block');
+        if (mode === 'single') cityElems.forEach(el => el.style.display = 'none');
+        else cityElems.forEach(el => el.style.display = 'block');
         hideCityCheckbox.checked = (mode === 'single');
     }
-    modeBtns.forEach(btn => btn.addEventListener('click', () => switchMode(btn.dataset.mode)));
-    function getElementConfig(parentSelector, type, className, side = null) { let selector = side ? `${parentSelector} #${side} .draggable[data-type="${type}"]` : `${parentSelector} .draggable[data-type="${type}"]`; let el = document.querySelector(selector); if (!el) return null; let left = el.style.left, top = el.style.top, textEl = el.querySelector(`.${className}`), fontSize = textEl ? window.getComputedStyle(textEl).fontSize : '48px', letterSpacing = textEl ? window.getComputedStyle(textEl).letterSpacing : '4px', lineHeight = textEl ? window.getComputedStyle(textEl).lineHeight : '1.2', hidden = (el.style.display === 'none'); return { left, top, fontSize, letterSpacing, lineHeight, hidden }; }
-    function getCurrentConfig() { return { single: { clock: getElementConfig('#singleLayout', 'clock', 'clock-text'), date: getElementConfig('#singleLayout', 'date', 'date-text'), city: getElementConfig('#singleLayout', 'city', 'city-text'), weather: getElementConfig('#singleLayout', 'weather', 'weather-text') }, dual: { left: { clock: getElementConfig('#dualLayout', 'clock', 'clock-text', 'dualLeft'), date: getElementConfig('#dualLayout', 'date', 'date-text', 'dualLeft'), city: getElementConfig('#dualLayout', 'city', 'city-text', 'dualLeft'), weather: getElementConfig('#dualLayout', 'weather', 'weather-text', 'dualLeft') }, right: { clock: getElementConfig('#dualLayout', 'clock', 'clock-text', 'dualRight'), date: getElementConfig('#dualLayout', 'date', 'date-text', 'dualRight'), city: getElementConfig('#dualLayout', 'city', 'city-text', 'dualRight'), weather: getElementConfig('#dualLayout', 'weather', 'weather-text', 'dualRight') } }, triple: { left: { clock: getElementConfig('#tripleLayout', 'clock', 'clock-text', 'tripleLeft'), date: getElementConfig('#tripleLayout', 'date', 'date-text', 'tripleLeft'), city: getElementConfig('#tripleLayout', 'city', 'city-text', 'tripleLeft'), weather: getElementConfig('#tripleLayout', 'weather', 'weather-text', 'tripleLeft') }, right: { clock: getElementConfig('#tripleLayout', 'clock', 'clock-text', 'tripleRight'), date: getElementConfig('#tripleLayout', 'date', 'date-text', 'tripleRight'), city: getElementConfig('#tripleLayout', 'city', 'city-text', 'tripleRight'), weather: getElementConfig('#tripleLayout', 'weather', 'weather-text', 'tripleRight') } }, colors: { dayBg: document.getElementById('dayBg').value, dayText: document.getElementById('dayText').value, nightBg: document.getElementById('nightBg').value, nightText: document.getElementById('nightText').value, accentColor: document.getElementById('accentColor').value } }; }
-    async function saveToCloud() { let configData = getCurrentConfig(); let content = JSON.stringify(configData, null, 2); try { await fetch(GIST_API, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ files: { 'clock_layout.json': { content: content } } }) }); showToast("✅ 配置已保存到云端"); } catch(e) { showToast("❌ 保存失败"); } }
-    function showToast(msg) { let t = document.createElement('div'); t.className = 'toast'; t.innerText = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 2000); }
+    document.querySelectorAll('.mode-btn').forEach(btn => btn.addEventListener('click', () => switchMode(btn.dataset.mode)));
+
+    // 获取元素配置（用于导出）
+    function getElementConfig(selector, className, side = null) {
+        let el;
+        if (side) el = document.querySelector(`${selector} #${side} .draggable`);
+        else el = document.querySelector(`${selector} .draggable`);
+        if (!el) return null;
+        let left = el.style.left, top = el.style.top;
+        let textEl = el.querySelector(`.${className}`);
+        let fontSize = textEl ? window.getComputedStyle(textEl).fontSize : '48px';
+        let letterSpacing = textEl ? window.getComputedStyle(textEl).letterSpacing : '4px';
+        let lineHeight = textEl ? window.getComputedStyle(textEl).lineHeight : '1.2';
+        let hidden = (el.style.display === 'none');
+        return { left, top, fontSize, letterSpacing, lineHeight, hidden };
+    }
+
+    function getCurrentConfig() {
+        return {
+            single: {
+                clock: getElementConfig('#singleLayout', 'clock-text'),
+                date: getElementConfig('#singleLayout', 'date-text'),
+                city: getElementConfig('#singleLayout', 'city-text'),
+                weather: getElementConfig('#singleLayout', 'weather-text')
+            },
+            dual: {
+                left: {
+                    clock: getElementConfig('#dualLayout', 'clock-text', 'dualLeft'),
+                    date: getElementConfig('#dualLayout', 'date-text', 'dualLeft'),
+                    city: getElementConfig('#dualLayout', 'city-text', 'dualLeft'),
+                    weather: getElementConfig('#dualLayout', 'weather-text', 'dualLeft')
+                },
+                right: {
+                    clock: getElementConfig('#dualLayout', 'clock-text', 'dualRight'),
+                    date: getElementConfig('#dualLayout', 'date-text', 'dualRight'),
+                    city: getElementConfig('#dualLayout', 'city-text', 'dualRight'),
+                    weather: getElementConfig('#dualLayout', 'weather-text', 'dualRight')
+                }
+            },
+            triple: {
+                left: {
+                    clock: getElementConfig('#tripleLayout', 'clock-text', 'tripleLeft'),
+                    date: getElementConfig('#tripleLayout', 'date-text', 'tripleLeft'),
+                    city: getElementConfig('#tripleLayout', 'city-text', 'tripleLeft'),
+                    weather: getElementConfig('#tripleLayout', 'weather-text', 'tripleLeft')
+                },
+                right: {
+                    clock: getElementConfig('#tripleLayout', 'clock-text', 'tripleRight'),
+                    date: getElementConfig('#tripleLayout', 'date-text', 'tripleRight'),
+                    city: getElementConfig('#tripleLayout', 'city-text', 'tripleRight'),
+                    weather: getElementConfig('#tripleLayout', 'weather-text', 'tripleRight')
+                }
+            },
+            colors: {
+                dayBg: document.getElementById('dayBg').value,
+                dayText: document.getElementById('dayText').value,
+                nightBg: document.getElementById('nightBg').value,
+                nightText: document.getElementById('nightText').value,
+                accentColor: document.getElementById('accentColor').value
+            }
+        };
+    }
+
+    async function saveToCloud() {
+        let configData = getCurrentConfig();
+        let content = JSON.stringify(configData, null, 2);
+        try {
+            let resp = await fetch(GIST_API, {
+                method: 'PATCH',
+                headers: getRequestHeaders(),
+                body: JSON.stringify({ files: { 'clock_layout.json': { content: content } } })
+            });
+            if (resp.ok) showToast("✅ 配置已保存到云端");
+            else showToast("❌ 保存失败，请检查Token权限");
+        } catch(e) { showToast("❌ 保存失败"); }
+    }
+
     document.getElementById('saveCloudBtn').onclick = saveToCloud;
-    switchMode('single'); bindAllTouch();
+    switchMode('single');
+    bindAllTouch();
 </script>
 </body>
 </html>
