@@ -1,1 +1,163 @@
-
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>时钟控制面板</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            background: #0a0e1a;
+            color: #ffffff;
+            font-family: -apple-system, 'SF Pro Display', sans-serif;
+            padding: 20px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-size: 1.8rem;
+            font-weight: 600;
+            margin-bottom: 24px;
+            color: #ffd966;
+        }
+        .card {
+            background: #11161f;
+            border-radius: 24px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border: 1px solid #2a3344;
+        }
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 16px;
+            color: #88aaff;
+        }
+        .setting-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px 0;
+            border-bottom: 1px solid #2a3344;
+        }
+        .setting-item:last-child {
+            border-bottom: none;
+        }
+        .setting-label {
+            font-size: 0.9rem;
+        }
+        .setting-desc {
+            font-size: 0.7rem;
+            color: #88aacc;
+            margin-top: 2px;
+        }
+        select, button {
+            background: #1a1f2e;
+            border: 1px solid #334455;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 40px;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        button {
+            background: #ffaa44;
+            color: #0a0e1a;
+            font-weight: bold;
+            border: none;
+        }
+        .color-option {
+            display: flex;
+            gap: 12px;
+        }
+        .color-btn {
+            width: 40px;
+            height: 40px;
+            border-radius: 40px;
+            cursor: pointer;
+            border: 2px solid transparent;
+        }
+        .color-btn.selected {
+            border-color: white;
+            transform: scale(1.1);
+        }
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+            padding: 20px;
+            border-radius: 24px;
+            transition: all 0.3s;
+        }
+        .preview-time {
+            font-size: 3rem;
+            font-weight: 600;
+            font-family: monospace;
+        }
+        .status {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 0.7rem;
+            color: #66ffaa;
+        }
+        hr {
+            border-color: #2a3344;
+            margin: 16px 0;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>⚙️ 时钟控制面板</h1>
+    
+    <div class="card">
+        <div class="card-title">🎨 主题风格</div>
+        <div class="color-option">
+            <div class="color-btn" style="background: linear-gradient(135deg, #0a0a0a, #1a1a2e);" data-theme="gradient"></div>
+            <div class="color-btn" style="background: #000000;" data-theme="black"></div>
+            <div class="color-btn" style="background: linear-gradient(135deg, #1a0a0a, #2e1a1a);" data-theme="darkred"></div>
+            <div class="color-btn" style="background: linear-gradient(135deg, #0a1a0a, #1a2e1a);" data-theme="darkgreen"></div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">⏰ 时钟设置</div>
+        <div class="setting-item">
+            <div>
+                <div class="setting-label">显示秒数</div>
+                <div class="setting-desc">全屏时钟是否显示秒</div>
+            </div>
+            <select id="showSeconds">
+                <option value="false">否</option>
+                <option value="true">是</option>
+            </select>
+        </div>
+        <div class="setting-item">
+            <div>
+                <div class="setting-label">日期格式</div>
+                <div class="setting-desc">全屏时钟日期显示语言</div>
+            </div>
+            <select id="dateFormat">
+                <option value="english">English (英文)</option>
+                <option value="chinese">中文</option>
+            </select>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-title">🔄 同步设置</div>
+        <div class="setting-item">
+            <div>
+                <div class="setting-label">日历同步间隔</div>
+                <div class="setting-desc">自动刷新Google日历</div>
+            </div>
+            <select id="syncInterval">
+                <option value="600">10分钟</option>
+                <option value="300">5分钟</option>
+                <option value=
