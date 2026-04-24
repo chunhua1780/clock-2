@@ -3,114 +3,214 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EK 控制面板</title>
+    <title>EK Pilot HUD Controller</title>
     <style>
-        :root { --p: #007aff; --s: #34c759; --bg: #f2f2f7; }
-        body { font-family: system-ui; background: var(--bg); margin: 0; padding: 15px; }
-        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
-        input[type="date"] { font-size: 20px; font-weight: bold; color: var(--p); }
-        .btn-main { background: var(--s); color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; }
-        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:100; }
-        .modal-box { background: white; width: 85%; padding: 20px; border-radius: 20px; }
-        .flight-row { border: 1px solid #eee; padding: 10px; border-radius: 8px; margin-top: 8px; cursor: pointer; }
-        .style-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-        .s-btn { border: 1px solid #ddd; padding: 10px 0; border-radius: 8px; background: #fff; font-size: 11px; }
-        .s-btn.active { background: var(--p); color: white; }
+        :root { --primary: #d71920; --bg: #f4f7f6; --text: #2c3e50; }
+        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; padding-bottom: 80px; }
+        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+        
+        /* 1. 日历风格 */
+        #calendar { width: 100%; border: none; font-size: 18px; font-weight: bold; color: var(--primary); background: transparent; cursor: pointer; }
+        
+        /* 2. 搜索弹窗 */
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
+        .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 20px; padding: 25px; }
+        .search-input-group { display: flex; gap: 10px; margin-bottom: 15px; }
+        
+        /* 3. 自动生成的回程卡片 */
+        #return-hint { display: none; background: #e8f4fd; border: 1px solid #3498db; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px; }
+        
+        /* 4. 20+ 风格滚动条 */
+        .style-scroller { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; }
+        .style-item { flex: 0 0 100px; text-align: center; cursor: pointer; }
+        .style-thumb { width: 100px; height: 60px; background: #333; border-radius: 8px; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; }
+        .style-item.active .style-thumb { border-color: var(--primary); box-shadow: 0 0 8px rgba(215,25,32,0.4); }
+
+        /* 5. Token 隐私 */
+        .token-box { display: flex; align-items: center; gap: 10px; }
+        #token-display { flex: 1; padding: 10px; background: #eee; border-radius: 6px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
+
+        input, select, button { border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-size: 16px; }
+        .btn-sync { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--primary); color: white; border: none; padding: 20px; font-size: 18px; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div class="card">
-    <label>📅 1. 选择飞行日期</label>
-    <input type="date" id="f_date" onchange="openSearch()">
+    <label style="font-size:12px; color:#999;">📅 选择日期 (触发航班添加)</label>
+    <input type="date" id="calendar" onchange="triggerSearch()">
 </div>
 
 <div class="card">
-    <label>✈️ 2. 核心参数确认</label>
-    <div style="display: flex; gap: 8px;">
-        <input type="text" id="dep" placeholder="DXB" oninput="this.value=this.value.toUpperCase()">
-        <input type="text" id="arr" placeholder="PVG" oninput="this.value=this.value.toUpperCase()">
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+        <input type="text" id="f_dep" placeholder="起飞 (DXB)" oninput="handleAutoReturn()">
+        <input type="text" id="f_arr" placeholder="目的地">
     </div>
-    <input type="tel" id="std_time" placeholder="输入4位时间, 如 0830" maxlength="4" onblur="formatTime(this)">
-    <textarea id="notam" placeholder="输入 NOTAM / 风险文字..."></textarea>
+    <div style="margin-top:10px;">
+        <label style="font-size:12px; color:#999;">起飞时间 (4位数字如 0930)</label>
+        <input type="tel" id="f_std" placeholder="00:00" maxlength="4" onblur="formatInputTime(this)">
+    </div>
+    
+    <div id="return-hint">
+        💡 检测到非迪拜起程，是否自动生成回程航班 (Return to DXB)？
+        <button onclick="applyAutoReturn()" style="margin-top:5px; padding:5px 10px; font-size:12px;">立即生成</button>
+    </div>
 </div>
 
 <div class="card">
-    <label>🎨 3. 20 种风格面板选择</label>
-    <div class="style-grid" id="style-picker"></div>
+    <label style="font-size:12px; color:#999; display:block; margin-bottom:10px;">🎨 仪表盘风格预览</label>
+    <div class="style-scroller" id="style-picker"></div>
 </div>
 
-<input type="password" id="tk" placeholder="粘贴 GitHub Token" style="margin-bottom:15px;">
-<button class="btn-main" onclick="sync()">🚀 一键同步到 iPad</button>
+<div class="card">
+    <div id="token-view" class="token-box">
+        <div id="token-display">●●●●●●●●●●●●●●●●</div>
+        <button onclick="showTokenEdit()" style="font-size:12px;">修改 Token</button>
+    </div>
+    <div id="token-edit" class="token-box" style="display:none;">
+        <input type="password" id="gh_token" placeholder="粘贴 GitHub Token" style="flex:1">
+        <button onclick="saveToken()">保存</button>
+    </div>
+</div>
 
 <div class="modal" id="searchModal">
-    <div class="modal-box">
-        <h3>智能航班检索 (EK 默认)</h3>
-        <input type="tel" id="f_no" placeholder="输入航班号, 如 302">
-        <button onclick="doSearch()" style="width:100%; padding:12px; background:var(--p); color:white; border:none; border-radius:8px;">查询相关 EK 航班</button>
-        <div id="results" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
-        <button onclick="closeModal()" style="width:100%; border:none; background:none; color:gray; margin-top:10px;">取消</button>
+    <div class="modal-content">
+        <h3 style="margin-top:0">智能搜索 (EK 默认)</h3>
+        <div class="search-input-group">
+            <input type="tel" id="search_no" placeholder="输入 343 或 8343" style="flex:1">
+            <button onclick="performEKSearch()" style="background:var(--primary); color:white;">🔍</button>
+        </div>
+        <div id="search-results" style="max-height:200px; overflow-y:auto;"></div>
+        <button onclick="closeModal()" style="width:100%; border:none; background:none; margin-top:15px; color:#999;">取消</button>
     </div>
 </div>
 
+<button class="btn-sync" onclick="syncAll()">🚀 同步到 iPad 屏幕</button>
+
 <script>
-    const CONFIG = { avi: 'b4bd321bbba1723162801cce3c455d7c', gist: '6b51ae2b894903de0227eaec5e0ce842' };
-    let curStyle = 'style-1';
+    const CONFIG = {
+        gistId: "6b51ae2b894903de0227eaec5e0ce842",
+        aviKey: "b4bd321bbba1723162801cce3c455d7c"
+    };
 
-    // 初始化20种风格
-    const p = document.getElementById('style-picker');
-    for(let i=1; i<=20; i++){
-        const b = document.createElement('button');
-        b.className = i===1?'s-btn active':'s-btn'; b.innerText = '风格'+i;
-        b.onclick = () => { document.querySelectorAll('.s-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); curStyle='style-'+i; };
-        p.appendChild(b);
-    }
+    let selectedStyle = 'style-1';
 
-    function openSearch(){ document.getElementById('searchModal').style.display='flex'; }
-    function closeModal(){ document.getElementById('searchModal').style.display='none'; }
-    function formatTime(i){ if(i.value.length===4 && !i.value.includes(':')) i.value = i.value.substring(0,2)+":"+i.value.substring(2,4); }
-
-    async function doSearch(){
-        let no = document.getElementById('f_no').value.toUpperCase();
-        let query = no.startsWith('EK') ? no : 'EK' + no;
-        const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.avi}&flight_iata=${query}`);
-        const json = await res.json();
-        const rBox = document.getElementById('results');
-        rBox.innerHTML = "";
-        if(json.data && json.data.length > 0){
-            json.data.forEach(f => {
-                const row = document.createElement('div');
-                row.className = 'flight-row';
-                row.innerHTML = `<b>${f.departure.iata} ➔ ${f.arrival.iata}</b><br><small>STD: ${f.departure.scheduled.substring(11,16)}</small>`;
-                row.onclick = () => {
-                    document.getElementById('dep').value = f.departure.iata;
-                    document.getElementById('arr').value = f.arrival.iata;
-                    document.getElementById('std_time').value = f.departure.scheduled.substring(11,16);
-                    closeModal();
-                };
-                rBox.appendChild(row);
-            });
-        } else { rBox.innerText = "未找到该 EK 航班"; }
-    }
-
-    async function sync(){
-        const token = document.getElementById('tk').value;
-        const payload = {
-            style: curStyle,
-            dep: document.getElementById('dep').value,
-            arr: document.getElementById('arr').value,
-            std: document.getElementById('f_date').value + " " + document.getElementById('std_time').value,
-            notam: document.getElementById('notam').value,
-            isLayover: false
+    // 初始化 20+ 风格
+    const styleBox = document.getElementById('style-picker');
+    for(let i=1; i<=20; i++) {
+        const item = document.createElement('div');
+        item.className = i === 1 ? 'style-item active' : 'style-item';
+        item.innerHTML = `<div class="style-thumb">STYLE ${i}</div><div style="font-size:10px; margin-top:5px;">面板 ${i}</div>`;
+        item.onclick = () => {
+            document.querySelectorAll('.style-item').forEach(el => el.classList.remove('active'));
+            item.classList.add('active');
+            selectedStyle = 'style-' + i;
         };
-        const res = await fetch(`https://api.github.com/gists/${CONFIG.gist}`, {
+        styleBox.appendChild(item);
+    }
+
+    // 1. 日历触发
+    function triggerSearch() {
+        document.getElementById('searchModal').style.display = 'flex';
+        document.getElementById('search_no').focus();
+    }
+
+    function closeModal() { document.getElementById('searchModal').style.display = 'none'; }
+
+    // 2. 航班搜索逻辑 (智能 EK 匹配)
+    async function performEKSearch() {
+        let no = document.getElementById('search_no').value.trim();
+        if(!no) return;
+        let query = no.toUpperCase().startsWith('EK') ? no : 'EK' + no;
+        
+        const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.aviKey}&flight_iata=${query}`);
+        const json = await res.json();
+        
+        const resDiv = document.getElementById('search-results');
+        resDiv.innerHTML = "";
+
+        if(json.data && json.data.length > 0) {
+            json.data.forEach(f => {
+                const opt = document.createElement('div');
+                opt.style.padding = '10px'; opt.style.borderBottom = '1px solid #eee';
+                opt.innerHTML = `<b>${f.departure.iata} ➔ ${f.arrival.iata}</b><br><small>STD: ${f.departure.scheduled.substring(11,16)}</small>`;
+                opt.onclick = () => {
+                    document.getElementById('f_dep').value = f.departure.iata;
+                    document.getElementById('f_arr').value = f.arrival.iata;
+                    document.getElementById('f_std').value = f.departure.scheduled.substring(11,16);
+                    closeModal();
+                    handleAutoReturn();
+                };
+                resDiv.appendChild(opt);
+            });
+        } else if(no.length > 3) {
+            // 容错：如果 8343 搜不到，截取后三位搜 343
+            document.getElementById('search_no').value = no.slice(-3);
+            performEKSearch();
+        }
+    }
+
+    // 3. 时间格式化 (0930 -> 09:30)
+    function formatInputTime(input) {
+        let v = input.value.replace(':', '');
+        if(v.length === 4) {
+            input.value = v.substring(0, 2) + ":" + v.substring(2, 4);
+        }
+    }
+
+    // 4. 回程自动生成逻辑
+    function handleAutoReturn() {
+        const dep = document.getElementById('f_dep').value.toUpperCase();
+        const hint = document.getElementById('return-hint');
+        hint.style.display = (dep !== 'DXB' && dep !== "") ? 'block' : 'none';
+    }
+
+    function applyAutoReturn() {
+        const currentArr = document.getElementById('f_arr').value;
+        const currentDep = document.getElementById('f_dep').value;
+        // 自动互换起降
+        document.getElementById('f_dep').value = currentArr;
+        document.getElementById('f_arr').value = "DXB";
+        document.getElementById('return-hint').style.display = 'none';
+    }
+
+    // 5. Token 隐私管理
+    function saveToken() {
+        const tk = document.getElementById('gh_token').value;
+        if(tk) {
+            localStorage.setItem('user_gh_token', tk);
+            document.getElementById('token-view').style.display = 'flex';
+            document.getElementById('token-edit').style.display = 'none';
+        }
+    }
+    function showTokenEdit() {
+        document.getElementById('token-view').style.display = 'none';
+        document.getElementById('token-edit').style.display = 'flex';
+    }
+
+    // 6. 同步
+    async function syncAll() {
+        const token = localStorage.getItem('user_gh_token');
+        if(!token) return showTokenEdit();
+
+        const payload = {
+            style: selectedStyle,
+            dep: document.getElementById('f_dep').value.toUpperCase(),
+            arr: document.getElementById('f_arr').value.toUpperCase(),
+            std: document.getElementById('calendar').value + " " + document.getElementById('f_std').value,
+            ts: Date.now()
+        };
+
+        const res = await fetch(`https://api.github.com/gists/${CONFIG.gistId}`, {
             method: "PATCH",
             headers: { "Authorization": `token ${token}` },
             body: JSON.stringify({ files: { "flight_data.json": { content: JSON.stringify(payload) } } })
         });
-        if(res.ok) alert("同步成功！");
+        if(res.ok) alert("同步成功！iPad 已感知。");
     }
+
+    // 页面加载检查 Token
+    if(!localStorage.getItem('user_gh_token')) showTokenEdit();
 </script>
 </body>
 </html>
