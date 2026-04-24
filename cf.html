@@ -2,662 +2,72 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>时钟工坊 · 全元素编辑器</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>🎨 全元素编辑器</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            -webkit-tap-highlight-color: transparent;
-        }
-        body {
-            background: #0a0e1a;
-            color: #ffffff;
-            font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
-            padding: 16px;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: baseline;
-            margin-bottom: 16px;
-            flex-wrap: wrap;
-        }
-        h1 {
-            font-size: 1.6rem;
-            color: #ffaa44;
-        }
-        .lock-area {
-            display: flex;
-            gap: 10px;
-        }
-        button {
-            background: #2a6faa;
-            border: none;
-            padding: 6px 14px;
-            border-radius: 30px;
-            color: white;
-            font-size: 0.8rem;
-            cursor: pointer;
-        }
-        .mode-bar {
-            display: flex;
-            gap: 10px;
-            background: #11161f;
-            border-radius: 60px;
-            padding: 6px;
-            margin-bottom: 20px;
-        }
-        .mode-btn {
-            flex: 1;
-            text-align: center;
-            padding: 8px;
-            border-radius: 40px;
-            font-weight: 600;
-            background: #1a1f2e;
-            color: #88aacc;
-            cursor: pointer;
-        }
-        .mode-btn.active {
-            background: #ffaa44;
-            color: #0a0e1a;
-        }
-        /* 画布 */
-        .canvas {
-            background: #1a2a4a;
-            border-radius: 48px;
-            position: relative;
-            margin-bottom: 24px;
-            touch-action: none;
-            aspect-ratio: 4 / 3;
-            overflow: hidden;
-            transition: background 0.3s;
-        }
-        .layout {
-            width: 100%;
-            height: 100%;
-            position: relative;
-        }
-        .layout.hidden {
-            display: none;
-        }
-        .draggable {
-            position: absolute;
-            transform: translate(-50%, -50%);
-            cursor: grab;
-            touch-action: none;
-            background: transparent;
-            white-space: nowrap;
-            z-index: 10;
-            text-align: center;
-        }
-        .draggable:active {
-            cursor: grabbing;
-        }
-        /* 元素内部样式 */
-        .clock-text {
-            font-weight: 700;
-            background: linear-gradient(135deg, #fff, #88aaff);
-            -webkit-background-clip: text;
-            background-clip: text;
-            color: transparent;
-            letter-spacing: 4px;
-        }
-        .date-text, .city-text {
-            opacity: 0.85;
-        }
-        /* 双屏/三屏辅助布局 */
-        .dual-container, .triple-container {
-            display: flex;
-            width: 100%;
-            height: 100%;
-        }
-        .panel {
-            flex: 1;
-            position: relative;
-            border-right: 1px solid rgba(255,255,255,0.1);
-        }
-        .panel:last-child {
-            border-right: none;
-        }
-        .triple-container {
-            flex-direction: column;
-        }
-        .triple-top {
-            height: 30%;
-            background: rgba(0,0,0,0.4);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 0.7rem;
-        }
-        .triple-bottom {
-            flex: 1;
-            display: flex;
-        }
-        .info-badge {
-            position: absolute;
-            top: 10px;
-            left: 10px;
-            right: 10px;
-            background: rgba(0,0,0,0.5);
-            border-radius: 20px;
-            padding: 5px;
-            text-align: center;
-            font-size: 0.6rem;
-            pointer-events: none;
-        }
-        /* 控制面板 */
-        .control-panel {
-            background: #11161f;
-            border-radius: 32px;
-            padding: 16px;
-            margin-bottom: 16px;
-        }
-        .section-title {
-            font-size: 0.85rem;
-            font-weight: 600;
-            color: #ffaa44;
-            margin-bottom: 12px;
-        }
-        .slider-group {
-            margin-bottom: 12px;
-        }
-        .slider-label {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            margin-bottom: 4px;
-        }
-        input[type="range"] {
-            width: 100%;
-            height: 4px;
-            -webkit-appearance: none;
-            background: #2a3344;
-            border-radius: 4px;
-        }
-        input[type="range"]::-webkit-slider-thumb {
-            width: 18px;
-            height: 18px;
-            border-radius: 50%;
-            background: #ffaa44;
-            cursor: pointer;
-        }
-        input[type="color"] {
-            width: 100%;
-            height: 36px;
-            border-radius: 20px;
-            border: none;
-            background: #1a1f2e;
-            cursor: pointer;
-        }
-        .checkbox-group {
-            display: flex;
-            gap: 16px;
-            align-items: center;
-            margin: 12px 0;
-        }
-        .checkbox-group label {
-            font-size: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-        }
-        .style-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(80px,1fr));
-            gap: 8px;
-            max-height: 160px;
-            overflow-y: auto;
-        }
-        .style-card {
-            background: #1a1f2e;
-            border-radius: 20px;
-            padding: 6px;
-            text-align: center;
-            cursor: pointer;
-            border: 2px solid transparent;
-        }
-        .style-card.selected {
-            border-color: #ffaa44;
-        }
-        .btn-primary {
-            background: #ffaa44;
-            color: #0a0e1a;
-        }
-        .toast {
-            position: fixed;
-            bottom: 20px;
-            left: 20px;
-            right: 20px;
-            background: #ffaa44;
-            color: #0a0e1a;
-            padding: 10px;
-            border-radius: 40px;
-            text-align: center;
-            z-index: 2000;
-            animation: fadeOut 2s forwards;
-        }
-        @keyframes fadeOut {
-            0% { opacity: 1; }
-            70% { opacity: 1; }
-            100% { opacity: 0; visibility: hidden; }
-        }
-        .hidden {
-            display: none;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #0a0e1a; color: #fff; font-family: system-ui; padding: 10px; }
+        .canvas { background: #1a2a4a; border-radius: 40px; position: relative; aspect-ratio: 4/3; overflow: hidden; margin-bottom: 20px; touch-action: none; }
+        .draggable { position: absolute; transform: translate(-50%, -50%); cursor: grab; background: rgba(255,255,255,0.1); border-radius: 8px; padding: 5px; }
+        .clock-text { font-weight: 700; font-size: 40px; }
+        .control-panel { background: #11161f; border-radius: 20px; padding: 15px; }
+        .slider-group { margin-bottom: 10px; }
+        input[type="range"] { width: 100%; }
+        button { width: 100%; padding: 12px; background: #ffaa44; border: none; border-radius: 10px; font-weight: bold; margin-top: 10px; }
+        .mode-bar { display: flex; gap: 10px; margin-bottom: 10px; }
+        .mode-btn { flex: 1; padding: 10px; background: #1a1f2e; text-align: center; border-radius: 10px; }
+        .mode-btn.active { background: #ffaa44; color: #000; }
     </style>
 </head>
 <body>
-<div class="container">
-    <div class="header">
-        <h1>🎨 全元素编辑器</h1>
-        <div class="lock-area">
-            <button id="lockBtn">🔒 锁定</button>
-            <button id="saveCloudBtn" class="btn-primary">☁️ 保存到云端</button>
-        </div>
-    </div>
-
     <div class="mode-bar">
-        <div class="mode-btn active" data-mode="single">单屏</div>
-        <div class="mode-btn" data-mode="dual">双屏</div>
-        <div class="mode-btn" data-mode="triple">三屏</div>
+        <div class="mode-btn active" id="btn-single">单屏</div>
+        <div class="mode-btn" id="btn-dual">双屏</div>
     </div>
-
-    <!-- 画布区 -->
     <div id="canvas" class="canvas">
-        <!-- 单屏布局 -->
-        <div id="singleLayout" class="layout">
-            <div class="draggable" data-type="clock" style="left:50%; top:35%;"><div class="clock-text">12:34</div></div>
-            <div class="draggable" data-type="date" style="left:50%; top:75%;"><div class="date-text">Monday, 1 Jan</div></div>
-            <div class="draggable" data-type="city" style="left:50%; top:85%;"><div class="city-text">Dubai, UAE</div></div>
-            <div class="draggable" data-type="weather" style="left:85%; top:15%;"><div class="weather-text">☀️ 32°C</div></div>
-        </div>
-        <!-- 双屏布局 -->
-        <div id="dualLayout" class="layout hidden">
-            <div class="dual-container">
-                <div class="panel" id="dualLeft">
-                    <div class="draggable" data-type="clock" style="left:50%; top:35%;"><div class="clock-text">12:34</div></div>
-                    <div class="draggable" data-type="date" style="left:50%; top:70%;"><div class="date-text">Monday</div></div>
-                    <div class="draggable" data-type="city" style="left:50%; top:85%;"><div class="city-text">Dubai, UAE</div></div>
-                    <div class="draggable" data-type="weather" style="left:85%; top:15%;"><div class="weather-text">☀️ 32°C</div></div>
-                </div>
-                <div class="panel" id="dualRight">
-                    <div class="draggable" data-type="clock" style="left:50%; top:35%;"><div class="clock-text">12:34</div></div>
-                    <div class="draggable" data-type="date" style="left:50%; top:70%;"><div class="date-text">Monday</div></div>
-                    <div class="draggable" data-type="city" style="left:50%; top:85%;"><div class="city-text">Shanghai, CN</div></div>
-                    <div class="draggable" data-type="weather" style="left:85%; top:15%;"><div class="weather-text">🌤️ 28°C</div></div>
-                </div>
-            </div>
-            <div class="info-badge">✈️ 计划航班 · DXB → PVG</div>
-        </div>
-        <!-- 三屏布局 -->
-        <div id="tripleLayout" class="layout hidden">
-            <div class="triple-container">
-                <div class="triple-top">✈️ 飞行中 · DXB → PVG</div>
-                <div class="triple-bottom">
-                    <div class="panel" id="tripleLeft">
-                        <div class="draggable" data-type="clock" style="left:50%; top:35%;"><div class="clock-text">12:34</div></div>
-                        <div class="draggable" data-type="date" style="left:50%; top:70%;"><div class="date-text">Monday</div></div>
-                        <div class="draggable" data-type="city" style="left:50%; top:85%;"><div class="city-text">Dubai, UAE</div></div>
-                        <div class="draggable" data-type="weather" style="left:85%; top:15%;"><div class="weather-text">☀️ 32°C</div></div>
-                    </div>
-                    <div class="panel" id="tripleRight">
-                        <div class="draggable" data-type="clock" style="left:50%; top:35%;"><div class="clock-text">12:34</div></div>
-                        <div class="draggable" data-type="date" style="left:50%; top:70%;"><div class="date-text">Monday</div></div>
-                        <div class="draggable" data-type="city" style="left:50%; top:85%;"><div class="city-text">Shanghai, CN</div></div>
-                        <div class="draggable" data-type="weather" style="left:85%; top:15%;"><div class="weather-text">🌤️ 28°C</div></div>
-                    </div>
-                </div>
-            </div>
-        </div>
+        <div class="draggable" id="drag-clock" style="left:50%; top:40%"><div class="clock-text">12:34</div></div>
+        <div class="draggable" id="drag-date" style="left:50%; top:70%">Monday, 1 Jan</div>
     </div>
-
-    <!-- 控制面板 -->
     <div class="control-panel">
-        <div class="section-title">🎯 当前选中元素调节</div>
-        <div class="slider-group">
-            <div class="slider-label">字体大小 <span id="fontSizeVal">48</span>px</div>
-            <input type="range" id="fontSlider" min="12" max="200" step="2" value="48">
-        </div>
-        <div class="slider-group">
-            <div class="slider-label">字宽(间距) <span id="letterSpacingVal">4</span>px</div>
-            <input type="range" id="letterSpacingSlider" min="0" max="20" step="1" value="4">
-        </div>
-        <div class="slider-group">
-            <div class="slider-label">行高(垂直) <span id="lineHeightVal">1.2</span></div>
-            <input type="range" id="lineHeightSlider" min="0.8" max="2.5" step="0.05" value="1.2">
-        </div>
-        <div class="slider-group">
-            <div class="slider-label">X 位置 (%) <span id="xVal">50</span>%</div>
-            <input type="range" id="xSlider" min="0" max="100" step="1" value="50">
-        </div>
-        <div class="slider-group">
-            <div class="slider-label">Y 位置 (%) <span id="yVal">50</span>%</div>
-            <input type="range" id="ySlider" min="0" max="100" step="1" value="50">
-        </div>
-        <div class="checkbox-group">
-            <label><input type="checkbox" id="hideCityCheckbox"> 隐藏城市/国家</label>
-        </div>
+        <div class="slider-group">大小: <input type="range" id="sizeSlider" min="20" max="200" value="40"></div>
+        <button onclick="saveLayout()">💾 同步布局到云端</button>
     </div>
-
-    <div class="control-panel">
-        <div class="section-title">🎨 主题颜色 (自动感应)</div>
-        <div class="slider-group"><div class="slider-label">白天背景</div><input type="color" id="dayBg" value="#e8f0f5"></div>
-        <div class="slider-group"><div class="slider-label">白天文字</div><input type="color" id="dayText" value="#1a2a3a"></div>
-        <div class="slider-group"><div class="slider-label">夜晚背景</div><input type="color" id="nightBg" value="#0a0e1a"></div>
-        <div class="slider-group"><div class="slider-label">夜晚文字</div><input type="color" id="nightText" value="#eef2f5"></div>
-        <div class="slider-group"><div class="slider-label">强调色(渐变)</div><input type="color" id="accentColor" value="#ffaa44"></div>
-    </div>
-
-    <button id="saveAndCloudBtn" class="btn-primary">💾 一键保存到云端 (锁定)</button>
-</div>
 
 <script>
-    // ---------- 全局变量 ----------
-    let currentMode = "single";
-    let selectedElement = null;
-    let isLocked = false;
-    let dragData = null, pinchData = null;
-    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";   // 您的云端存储ID
-    const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
+    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    const GH_TOKEN = localStorage.getItem('gh_token');
+    let selected = null;
 
-    // DOM 元素
-    const canvas = document.getElementById('canvas');
-    const singleLayout = document.getElementById('singleLayout');
-    const dualLayout = document.getElementById('dualLayout');
-    const tripleLayout = document.getElementById('tripleLayout');
-    const modeBtns = document.querySelectorAll('.mode-btn');
-    const fontSlider = document.getElementById('fontSlider');
-    const fontSizeVal = document.getElementById('fontSizeVal');
-    const letterSpacingSlider = document.getElementById('letterSpacingSlider');
-    const letterSpacingVal = document.getElementById('letterSpacingVal');
-    const lineHeightSlider = document.getElementById('lineHeightSlider');
-    const lineHeightVal = document.getElementById('lineHeightVal');
-    const xSlider = document.getElementById('xSlider');
-    const xVal = document.getElementById('xVal');
-    const ySlider = document.getElementById('ySlider');
-    const yVal = document.getElementById('yVal');
-    const hideCityCheckbox = document.getElementById('hideCityCheckbox');
-
-    // 获取当前模式下的所有可拖拽元素
-    function getCurrentDraggables() {
-        if (currentMode === "single") return Array.from(document.querySelectorAll('#singleLayout .draggable'));
-        if (currentMode === "dual") return Array.from(document.querySelectorAll('#dualLayout .draggable'));
-        return Array.from(document.querySelectorAll('#tripleLayout .draggable'));
-    }
-
-    // 更新所有控件的值（根据选中元素）
-    function updateSlidersFromElement(el) {
-        if (!el) return;
-        let left = parseFloat(el.style.left);
-        let top = parseFloat(el.style.top);
-        if (!isNaN(left)) { xSlider.value = left; xVal.innerText = Math.round(left); }
-        if (!isNaN(top)) { ySlider.value = top; yVal.innerText = Math.round(top); }
-        let textElem = el.querySelector('.clock-text, .date-text, .city-text, .weather-text');
-        if (textElem) {
-            let fontSize = parseInt(window.getComputedStyle(textElem).fontSize);
-            let letterSpacing = parseFloat(window.getComputedStyle(textElem).letterSpacing);
-            let lineHeight = parseFloat(window.getComputedStyle(textElem).lineHeight);
-            if (!isNaN(fontSize)) { fontSlider.value = fontSize; fontSizeVal.innerText = fontSize; }
-            if (!isNaN(letterSpacing)) { letterSpacingSlider.value = letterSpacing; letterSpacingVal.innerText = letterSpacing; }
-            if (!isNaN(lineHeight)) { lineHeightSlider.value = lineHeight; lineHeightVal.innerText = lineHeight; }
-        }
-        // 高亮
-        getCurrentDraggables().forEach(d => d.style.border = 'none');
-        el.style.border = '2px solid #ffaa44';
-        el.style.borderRadius = '12px';
-    }
-
-    // 应用滑块值到当前选中元素
-    function applyToElement() {
-        if (!selectedElement) return;
-        let x = parseFloat(xSlider.value);
-        let y = parseFloat(ySlider.value);
-        let fontSize = parseFloat(fontSlider.value);
-        let letterSpacing = parseFloat(letterSpacingSlider.value);
-        let lineHeight = parseFloat(lineHeightSlider.value);
-        selectedElement.style.left = x + '%';
-        selectedElement.style.top = y + '%';
-        let textElem = selectedElement.querySelector('.clock-text, .date-text, .city-text, .weather-text');
-        if (textElem) {
-            textElem.style.fontSize = fontSize + 'px';
-            textElem.style.letterSpacing = letterSpacing + 'px';
-            textElem.style.lineHeight = lineHeight;
-        }
-        xVal.innerText = Math.round(x);
-        yVal.innerText = Math.round(y);
-        fontSizeVal.innerText = fontSize;
-        letterSpacingVal.innerText = letterSpacing;
-        lineHeightVal.innerText = lineHeight;
-    }
-
-    xSlider.addEventListener('input', applyToElement);
-    ySlider.addEventListener('input', applyToElement);
-    fontSlider.addEventListener('input', applyToElement);
-    letterSpacingSlider.addEventListener('input', applyToElement);
-    lineHeightSlider.addEventListener('input', applyToElement);
-
-    // 隐藏城市元素
-    hideCityCheckbox.addEventListener('change', (e) => {
-        let cityElems = document.querySelectorAll(`#${currentMode}Layout .draggable[data-type="city"]`);
-        cityElems.forEach(el => {
-            if (e.target.checked) el.style.display = 'none';
-            else el.style.display = 'block';
+    document.querySelectorAll('.draggable').forEach(el => {
+        el.addEventListener('touchstart', (e) => {
+            selected = el;
+            let touch = e.touches[0];
+            el.dataset.startX = touch.clientX - el.offsetLeft;
+            el.dataset.startY = touch.clientY - el.offsetTop;
+        });
+        el.addEventListener('touchmove', (e) => {
+            if(!selected) return;
+            let touch = e.touches[0];
+            let x = ((touch.clientX - selected.dataset.startX) / canvas.offsetWidth) * 100;
+            let y = ((touch.clientY - selected.dataset.startY) / canvas.offsetHeight) * 100;
+            selected.style.left = x + '%';
+            selected.style.top = y + '%';
         });
     });
 
-    // ========== 触摸拖拽/缩放 ==========
-    function initTouch(el) {
-        el.addEventListener('touchstart', onTouchStart, { passive: false });
-        el.addEventListener('touchmove', onTouchMove, { passive: false });
-        el.addEventListener('touchend', onTouchEnd);
-    }
-    let internalDrag = null, internalPinch = null;
-    function onTouchStart(e) {
-        if (isLocked) return;
-        e.stopPropagation();
-        let touches = e.touches;
-        if (touches.length === 1) {
-            selectedElement = e.currentTarget;
-            updateSlidersFromElement(selectedElement);
-            let rect = selectedElement.getBoundingClientRect();
-            let canvasRect = canvas.getBoundingClientRect();
-            let leftPct = parseFloat(selectedElement.style.left);
-            let topPct = parseFloat(selectedElement.style.top);
-            internalDrag = {
-                startX: touches[0].clientX, startY: touches[0].clientY,
-                leftPct: isNaN(leftPct) ? 50 : leftPct,
-                topPct: isNaN(topPct) ? 50 : topPct,
-                canvasW: canvasRect.width, canvasH: canvasRect.height
-            };
-        } else if (touches.length === 2) {
-            let dx = touches[0].clientX - touches[1].clientX;
-            let dy = touches[0].clientY - touches[1].clientY;
-            let dist = Math.hypot(dx, dy);
-            let target = e.currentTarget;
-            let txt = target.querySelector('.clock-text, .date-text, .city-text, .weather-text');
-            let curFont = txt ? parseInt(window.getComputedStyle(txt).fontSize) : 36;
-            internalPinch = { startDist: dist, startFont: curFont, target: target };
-        }
-    }
-    function onTouchMove(e) {
-        if (isLocked) return;
-        e.preventDefault();
-        let touches = e.touches;
-        if (internalDrag && touches.length === 1) {
-            let dx = touches[0].clientX - internalDrag.startX;
-            let dy = touches[0].clientY - internalDrag.startY;
-            let newLeft = internalDrag.leftPct + (dx / internalDrag.canvasW) * 100;
-            let newTop = internalDrag.topPct + (dy / internalDrag.canvasH) * 100;
-            newLeft = Math.min(95, Math.max(5, newLeft));
-            newTop = Math.min(95, Math.max(5, newTop));
-            if (selectedElement) {
-                selectedElement.style.left = newLeft + '%';
-                selectedElement.style.top = newTop + '%';
-                xSlider.value = newLeft; xVal.innerText = Math.round(newLeft);
-                ySlider.value = newTop; yVal.innerText = Math.round(newTop);
-            }
-        } else if (internalPinch && touches.length === 2) {
-            let dx = touches[0].clientX - touches[1].clientX;
-            let dy = touches[0].clientY - touches[1].clientY;
-            let newDist = Math.hypot(dx, dy);
-            let scale = newDist / internalPinch.startDist;
-            let newFont = internalPinch.startFont * scale;
-            newFont = Math.min(200, Math.max(12, newFont));
-            let txt = internalPinch.target.querySelector('.clock-text, .date-text, .city-text, .weather-text');
-            if (txt) {
-                txt.style.fontSize = newFont + 'px';
-                if (selectedElement === internalPinch.target) {
-                    fontSlider.value = newFont;
-                    fontSizeVal.innerText = newFont;
-                }
-            }
-        }
-    }
-    function onTouchEnd(e) {
-        internalDrag = null;
-        internalPinch = null;
-    }
-    function bindAllTouch() {
-        let draggables = getCurrentDraggables();
-        draggables.forEach(el => {
-            el.removeEventListener('touchstart', onTouchStart);
-            el.removeEventListener('touchmove', onTouchMove);
-            el.removeEventListener('touchend', onTouchEnd);
-            initTouch(el);
+    async function saveLayout() {
+        if(!GH_TOKEN) return alert("请先在控制台输入Token");
+        const config = {
+            clock: { left: document.getElementById('drag-clock').style.left, top: document.getElementById('drag-clock').style.top, size: document.getElementById('drag-clock').style.fontSize },
+            date: { left: document.getElementById('drag-date').style.left, top: document.getElementById('drag-date').style.top }
+        };
+        await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `token ${GH_TOKEN}` },
+            body: JSON.stringify({ files: { 'clock_layout.json': { content: JSON.stringify(config) } } })
         });
+        alert("布局已同步");
     }
-
-    // ========== 模式切换 ==========
-    function switchMode(mode) {
-        currentMode = mode;
-        singleLayout.classList.add('hidden');
-        dualLayout.classList.add('hidden');
-        tripleLayout.classList.add('hidden');
-        if (mode === 'single') singleLayout.classList.remove('hidden');
-        else if (mode === 'dual') dualLayout.classList.remove('hidden');
-        else tripleLayout.classList.remove('hidden');
-        modeBtns.forEach(btn => {
-            if (btn.dataset.mode === mode) btn.classList.add('active');
-            else btn.classList.remove('active');
-        });
-        bindAllTouch();
-        selectedElement = null;
-        // 单屏时默认隐藏城市（可自行调节）
-        let cityElems = document.querySelectorAll(`#${mode}Layout .draggable[data-type="city"]`);
-        if (mode === 'single') cityElems.forEach(el => el.style.display = 'none');
-        else cityElems.forEach(el => el.style.display = 'block');
-        hideCityCheckbox.checked = (mode === 'single');
-    }
-    modeBtns.forEach(btn => btn.addEventListener('click', () => switchMode(btn.dataset.mode)));
-
-    // ========== 收集配置 ==========
-    function getElementData(parentSelector, type, className) {
-        let el = document.querySelector(`${parentSelector} .draggable[data-type="${type}"]`);
-        if (!el) return null;
-        let left = el.style.left;
-        let top = el.style.top;
-        let textEl = el.querySelector(`.${className}`);
-        let fontSize = textEl ? window.getComputedStyle(textEl).fontSize : '48px';
-        let letterSpacing = textEl ? window.getComputedStyle(textEl).letterSpacing : '4px';
-        let lineHeight = textEl ? window.getComputedStyle(textEl).lineHeight : '1.2';
-        let hidden = (el.style.display === 'none');
-        return { left, top, fontSize, letterSpacing, lineHeight, hidden };
-    }
-
-    function getCurrentFullConfig() {
-        let single = {
-            clock: getElementData('#singleLayout', 'clock', 'clock-text'),
-            date: getElementData('#singleLayout', 'date', 'date-text'),
-            city: getElementData('#singleLayout', 'city', 'city-text'),
-            weather: getElementData('#singleLayout', 'weather', 'weather-text')
-        };
-        let dual = {
-            left: {
-                clock: getElementData('#dualLayout #dualLeft', 'clock', 'clock-text'),
-                date: getElementData('#dualLayout #dualLeft', 'date', 'date-text'),
-                city: getElementData('#dualLayout #dualLeft', 'city', 'city-text'),
-                weather: getElementData('#dualLayout #dualLeft', 'weather', 'weather-text')
-            },
-            right: {
-                clock: getElementData('#dualLayout #dualRight', 'clock', 'clock-text'),
-                date: getElementData('#dualLayout #dualRight', 'date', 'date-text'),
-                city: getElementData('#dualLayout #dualRight', 'city', 'city-text'),
-                weather: getElementData('#dualLayout #dualRight', 'weather', 'weather-text')
-            }
-        };
-        let triple = {
-            left: {
-                clock: getElementData('#tripleLayout #tripleLeft', 'clock', 'clock-text'),
-                date: getElementData('#tripleLayout #tripleLeft', 'date', 'date-text'),
-                city: getElementData('#tripleLayout #tripleLeft', 'city', 'city-text'),
-                weather: getElementData('#tripleLayout #tripleLeft', 'weather', 'weather-text')
-            },
-            right: {
-                clock: getElementData('#tripleLayout #tripleRight', 'clock', 'clock-text'),
-                date: getElementData('#tripleLayout #tripleRight', 'date', 'date-text'),
-                city: getElementData('#tripleLayout #tripleRight', 'city', 'city-text'),
-                weather: getElementData('#tripleLayout #tripleRight', 'weather', 'weather-text')
-            }
-        };
-        let colors = {
-            dayBg: document.getElementById('dayBg').value,
-            dayText: document.getElementById('dayText').value,
-            nightBg: document.getElementById('nightBg').value,
-            nightText: document.getElementById('nightText').value,
-            accentColor: document.getElementById('accentColor').value
-        };
-        return { single, dual, triple, colors };
-    }
-
-    // ========== 云端保存 ==========
-    async function saveToCloud() {
-        let config = getCurrentFullConfig();
-        let content = JSON.stringify(config, null, 2);
-        try {
-            let resp = await fetch(GIST_API, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    files: { 'clock_layout.json': { content: content } }
-                })
-            });
-            if (resp.ok) {
-                showToast("✅ 已保存到云端！配置已锁定。");
-                isLocked = true;
-                document.getElementById('lockBtn').innerText = "🔒 已锁定";
-            } else {
-                showToast("❌ 云端保存失败，请检查网络");
-            }
-        } catch(e) {
-            showToast("❌ 连接失败，请稍后重试");
-        }
-    }
-
-    function showToast(msg) {
-        let t = document.createElement('div');
-        t.className = 'toast';
-        t.innerText = msg;
-        document.body.appendChild(t);
-        setTimeout(()=>t.remove(), 2000);
-    }
-
-    document.getElementById('saveAndCloudBtn').onclick = saveToCloud;
-    document.getElementById('lockBtn').onclick = () => {
-        isLocked = true;
-        showToast("🔒 已手动锁定，如需编辑请刷新页面重新配置");
-    };
-
-    // 初始化
-    switchMode('single');
-    bindAllTouch();
 </script>
 </body>
 </html>
