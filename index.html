@@ -3,182 +3,369 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>777 Captain Digital HUD</title>
-    <style id="dynamic-theme">
+    <title>迪拜飞行时钟 · 智能版</title>
+    <style>
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        body { background: #000; color: #fff; font-family: 'SF Pro Display', sans-serif; height: 100vh; width: 100vw; overflow: hidden; transition: all 0.5s; }
-        .mode-container { position: relative; width: 100%; height: 100%; }
-        .dual-layout { display: flex; width: 100%; height: 100%; }
-        .dual-panel { flex: 1; position: relative; border-right: 1px solid rgba(255,255,255,0.1); }
+        body {
+            font-family: 'SF Pro Display', -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            transition: background-color 0.5s, color 0.3s;
+        }
+        .mode-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .dual-layout, .triple-layout {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+        .dual-panel {
+            flex: 1;
+            position: relative;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
         .dual-panel:last-child { border-right: none; }
-        
-        .draggable { position: absolute; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; }
-        .clock-text { font-weight: 700; }
-        
-        .flight-bar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 90%; background: rgba(0,0,0,0.6); backdrop-filter: blur(15px); border-radius: 30px; padding: 10px 20px; font-size: 1.2rem; text-align: center; z-index: 100; border: 1px solid rgba(255,255,255,0.1); color: #ffaa44; font-weight: bold; }
-        .loading-overlay { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 1.2rem; }
+        .triple-layout { flex-direction: column; }
+        .triple-top {
+            height: 30%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            z-index: 5;
+        }
+        .triple-bottom { flex: 1; display: flex; }
+        .flight-bar {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            padding: 8px 16px;
+            font-size: 0.7rem;
+            text-align: center;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .clock-element {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .clock-text {
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #88aaff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .date-text, .city-text, .weather-text { opacity: 0.85; }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
     </style>
 </head>
 <body>
 <div id="app"></div>
 
 <script>
-    // 1. 云端配置 (与您的控制台/编辑器一致)
+    // ==================== 配置 ====================
     const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
     const DUBAI_TZ = "Asia/Dubai";
+    let flightsDB = {};
+    let layoutConfig = null;
+    let currentMode = "single";
+    let currentFlight = null;
+    let nextFlight = null;
+    let weatherCache = {};
 
-    // 2. 核心状态
-    let cloudConfig = null;   // 布局
-    let flightData = null;    // 航班
-    let currentMode = "";     // single, dual
+    // 机场时区及坐标（简版）
+    const airportInfo = {
+        "DXB": { city: "Dubai", country: "UAE", tz: "Asia/Dubai", lat: 25.2532, lon: 55.3657 },
+        "PVG": { city: "Shanghai", country: "China", tz: "Asia/Shanghai", lat: 31.1443, lon: 121.8083 },
+        "PEK": { city: "Beijing", country: "China", tz: "Asia/Shanghai", lat: 40.0799, lon: 116.6031 },
+        "LHR": { city: "London", country: "UK", tz: "Europe/London", lat: 51.47, lon: -0.4543 }
+    };
+    function getAirport(code) { return airportInfo[code] || { city: code, country: "", tz: "UTC", lat: 25.2532, lon: 55.3657 }; }
 
-    // 3. 通讯跑通：从 Gist 抓取最新数据
-    async function syncFromCloud() {
+    async function fetchWeather(lat, lon) {
+        let key = `${lat}_${lon}_${Math.floor(Date.now()/3600000)}`;
+        if (weatherCache[key]) return weatherCache[key];
         try {
-            const resp = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`);
-            const data = await resp.json();
-            
-            // 解析布局
-            if (data.files['clock_layout.json']) {
-                cloudConfig = JSON.parse(data.files['clock_layout.json'].content);
+            let url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
+            let resp = await fetch(url);
+            let data = await resp.json();
+            if (data && data.current_weather) {
+                let map = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",51:"🌧️",61:"🌧️",71:"❄️",80:"🌦️",95:"⛈️"};
+                let icon = map[data.current_weather.weathercode] || "🌍";
+                let result = { temp: Math.round(data.current_weather.temperature), icon: icon };
+                weatherCache[key] = result;
+                return result;
             }
-            // 解析航班
-            if (data.files['flight_data.json']) {
-                flightData = JSON.parse(data.files['flight_data.json'].content);
+        } catch(e) {}
+        return { temp: 22, icon: "☀️" };
+    }
+
+    async function loadData() {
+        try {
+            let resp = await fetch(GIST_API);
+            let data = await resp.json();
+            if (data.files && data.files['flight_data.json']) {
+                let content = JSON.parse(data.files['flight_data.json'].content);
+                flightsDB = content.flightsDB || {};
             }
-            
-            decideModeAndRender();
-        } catch (e) {
-            console.error("❌ 通讯异常:", e);
-        }
-    }
-
-    // 4. 逻辑引擎：决定显示模式
-    function decideModeAndRender() {
-        if (!flightData || !cloudConfig) return;
-
-        const now = new Date();
-        const std = new Date(flightData.std);
-        const timeToDep = std - now;
-
-        // 如果航班在 24 小时内起飞，或者起飞后 12 小时内，开启双屏
-        let newMode = (timeToDep < 86400000 && timeToDep > -43200000) ? "dual" : "single";
-
-        if (newMode !== currentMode) {
-            currentMode = newMode;
-            renderLayout();
-        }
-        updateContent();
-    }
-
-    // 5. 渲染引擎：应用布局配置
-    function renderLayout() {
-        const app = document.getElementById('app');
-        app.innerHTML = '';
-        const isDual = (currentMode === "dual");
-
-        if (!isDual) {
-            app.innerHTML = `
-                <div class="mode-container" id="single-view">
-                    <div class="draggable" id="clock-1"><div class="clock-text">00:00</div></div>
-                    <div class="draggable" id="date-1">DATE</div>
-                </div>`;
-            applyStyle('clock-1', cloudConfig.single.clock);
-            applyStyle('date-1', cloudConfig.single.date);
-        } else {
-            app.innerHTML = `
-                <div class="mode-container" id="dual-view">
-                    <div class="flight-bar">✈️ ${flightData.flightNo} | ${flightData.origin} ➔ ${flightData.dest}</div>
-                    <div class="dual-layout">
-                        <div class="dual-panel" id="panel-left">
-                            <div class="draggable" id="clock-l"><div class="clock-text">00:00</div></div>
-                            <div class="draggable" id="date-l">DATE</div>
-                        </div>
-                        <div class="dual-panel" id="panel-right">
-                            <div class="draggable" id="clock-r"><div class="clock-text">00:00</div></div>
-                            <div class="draggable" id="date-r">DATE</div>
-                        </div>
-                    </div>
-                </div>`;
-            // 双屏布局：左侧用单屏配置的变体或预设
-            applyStyle('clock-l', cloudConfig.dual.left.clock);
-            applyStyle('date-l', cloudConfig.dual.left.date);
-            applyStyle('clock-r', cloudConfig.dual.right.clock);
-            applyStyle('date-r', cloudConfig.dual.right.date);
-        }
-    }
-
-    // 将 Editor 传来的 CSS 属性应用到元素上
-    function applyStyle(id, style) {
-        const el = document.getElementById(id);
-        if (!el || !style) return;
-        el.style.left = style.left;
-        el.style.top = style.top;
-        if (style.fontSize) el.style.fontSize = style.fontSize;
-        if (style.letterSpacing) el.style.letterSpacing = style.letterSpacing;
-        
-        const txt = el.querySelector('.clock-text');
-        if (txt) {
-            txt.style.fontSize = style.fontSize;
-            txt.style.letterSpacing = style.letterSpacing;
-        }
-    }
-
-    // 6. 内容引擎：每秒更新时间
-    function updateContent() {
-        const now = new Date();
-        const options = { hour: '2-digit', minute: '2-digit', hour12: false };
-        const dateOptions = { weekday: 'long', month: 'short', day: 'numeric' };
-
-        if (currentMode === "single") {
-            const clockEl = document.querySelector('#clock-1 .clock-text');
-            const dateEl = document.getElementById('date-1');
-            if (clockEl) clockEl.innerText = now.toLocaleTimeString('en-GB', { ...options, timeZone: DUBAI_TZ });
-            if (dateEl) dateEl.innerText = now.toLocaleDateString('en-GB', { ...dateOptions, timeZone: DUBAI_TZ }).toUpperCase();
-        } else {
-            // 双屏：左侧迪拜，右侧目的地（这里目的地时区先用 UTC 占位，您可根据数据库扩展）
-            if (document.querySelector('#clock-l .clock-text')) {
-                document.querySelector('#clock-l .clock-text').innerText = now.toLocaleTimeString('en-GB', { ...options, timeZone: DUBAI_TZ });
-                document.getElementById('date-l').innerText = now.toLocaleDateString('en-GB', { ...dateOptions, timeZone: DUBAI_TZ }).toUpperCase();
+            if (data.files && data.files['clock_layout.json']) {
+                layoutConfig = JSON.parse(data.files['clock_layout.json'].content);
             }
-            if (document.querySelector('#clock-r .clock-text')) {
-                document.querySelector('#clock-r .clock-text').innerText = now.toLocaleTimeString('en-GB', { ...options }); // 目的地时间
-                document.getElementById('date-r').innerText = now.toLocaleDateString('en-GB', { ...dateOptions }).toUpperCase();
+        } catch(e) { console.warn(e); }
+        if (!layoutConfig) {
+            layoutConfig = {
+                single: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"75%", fontSize:"16px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:true }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } },
+                dual: { left: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } }, right: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } } },
+                triple: { left: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } }, right: { clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2" }, date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2" }, city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }, weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2" } } },
+                colors: { dayBg: "#e8f0f5", dayText: "#1a2a3a", nightBg: "#0a0e1a", nightText: "#eef2f5", accentColor: "#ffaa44" }
+            };
+        }
+    }
+
+    function getFlightChain() {
+        let now = new Date();
+        let all = [];
+        for (let date in flightsDB) {
+            for (let f of flightsDB[date]) {
+                let dep = new Date(f.departureTime);
+                if (dep > now && dep < new Date(now.getTime() + 72*3600000)) {
+                    all.push({ ...f, depTime: dep });
+                }
             }
         }
-        applyTheme();
+        all.sort((a,b) => a.depTime - b.depTime);
+        return { current: all[0] || null, next: all[1] || null };
     }
 
-    // 7. 主题引擎：自动感应白天/黑夜
-    function applyTheme() {
-        const hour = new Date().toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', hour12: false });
-        const isDay = (hour >= 6 && hour < 18);
-        const colors = cloudConfig.colors;
-        
-        document.body.style.backgroundColor = isDay ? colors.dayBg : colors.nightBg;
-        document.body.style.color = isDay ? colors.dayText : colors.nightText;
-        
+    function getFlightState(flight) {
+        if (!flight) return "no-flight";
+        let now = new Date();
+        let dep = new Date(flight.departureTime);
+        let arr = flight.arrivalTime ? new Date(flight.arrivalTime) : null;
+        if (now < dep) return "scheduled";
+        if (now > dep && (!arr || now < arr)) return "flying";
+        return "arrived";
+    }
+
+    function applyColorTheme() {
+        if (!layoutConfig.colors) return;
+        let hour = new Date().toLocaleTimeString('en-US', { timeZone: DUBAI_TZ, hour:'2-digit', hour12:false });
+        let isDay = (hour >= 6 && hour < 18);
+        let bg = isDay ? layoutConfig.colors.dayBg : layoutConfig.colors.nightBg;
+        let text = isDay ? layoutConfig.colors.dayText : layoutConfig.colors.nightText;
+        document.body.style.backgroundColor = bg;
+        document.body.style.color = text;
         document.querySelectorAll('.clock-text').forEach(el => {
-            el.style.backgroundImage = `linear-gradient(135deg, ${colors.accentColor}, ${isDay ? colors.dayText : colors.nightText})`;
+            el.style.background = `linear-gradient(135deg, ${layoutConfig.colors.accentColor}, ${text})`;
             el.style.webkitBackgroundClip = 'text';
             el.style.backgroundClip = 'text';
             el.style.color = 'transparent';
         });
     }
 
-    // 初始化运行
-    window.onload = async () => {
-        const loading = document.createElement('div');
+    function applyElementStyle(containerId, type, className, side = null) {
+        let selector = side ? `#${containerId} #${side} .draggable[data-type="${type}"]` : `#${containerId} .draggable[data-type="${type}"]`;
+        let el = document.querySelector(selector);
+        if (!el) return;
+        let cfg;
+        if (currentMode === 'single') cfg = layoutConfig.single[type];
+        else if (currentMode === 'dual') cfg = layoutConfig.dual[side][type];
+        else cfg = layoutConfig.triple[side][type];
+        if (!cfg) return;
+        if (cfg.left) el.style.left = cfg.left;
+        if (cfg.top) el.style.top = cfg.top;
+        let textEl = el.querySelector(`.${className}`);
+        if (textEl && cfg.fontSize) textEl.style.fontSize = cfg.fontSize;
+        if (textEl && cfg.letterSpacing) textEl.style.letterSpacing = cfg.letterSpacing;
+        if (textEl && cfg.lineHeight) textEl.style.lineHeight = cfg.lineHeight;
+        if (cfg.hidden) el.style.display = 'none';
+        else el.style.display = 'block';
+    }
+
+    async function buildSingleMode() {
+        let container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'singleMode';
+        container.innerHTML = `
+            <div class="draggable" data-type="clock"><div class="clock-text">--:--</div></div>
+            <div class="draggable" data-type="date"><div class="date-text"></div></div>
+            <div class="draggable" data-type="city"><div class="city-text"></div></div>
+            <div class="draggable" data-type="weather"><div class="weather-text"></div></div>
+        `;
+        document.getElementById('app').appendChild(container);
+        applyElementStyle('singleMode', 'clock', 'clock-text');
+        applyElementStyle('singleMode', 'date', 'date-text');
+        applyElementStyle('singleMode', 'city', 'city-text');
+        applyElementStyle('singleMode', 'weather', 'weather-text');
+        let update = () => {
+            let now = new Date();
+            document.querySelector('#singleMode .clock-text').innerText = now.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour:'2-digit', minute:'2-digit', hour12:false });
+            document.querySelector('#singleMode .date-text').innerText = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' });
+            document.querySelector('#singleMode .city-text').innerHTML = `Dubai, UAE`;
+        };
+        update();
+        setInterval(update, 1000);
+        let w = await fetchWeather(25.2532, 55.3657);
+        document.querySelector('#singleMode .weather-text').innerHTML = `${w.icon} ${w.temp}°C`;
+        setInterval(async () => {
+            let w2 = await fetchWeather(25.2532, 55.3657);
+            document.querySelector('#singleMode .weather-text').innerHTML = `${w2.icon} ${w2.temp}°C`;
+        }, 1800000);
+    }
+
+    async function buildDualMode(flight) {
+        let container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'dualMode';
+        container.innerHTML = `
+            <div class="flight-bar" id="dualFlightBar"></div>
+            <div class="dual-layout">
+                <div class="dual-panel" id="dualLeft"><div class="draggable" data-type="clock"><div class="clock-text">--:--</div></div><div class="draggable" data-type="date"><div class="date-text"></div></div><div class="draggable" data-type="city"><div class="city-text"></div></div><div class="draggable" data-type="weather"><div class="weather-text"></div></div></div>
+                <div class="dual-panel" id="dualRight"><div class="draggable" data-type="clock"><div class="clock-text">--:--</div></div><div class="draggable" data-type="date"><div class="date-text"></div></div><div class="draggable" data-type="city"><div class="city-text"></div></div><div class="draggable" data-type="weather"><div class="weather-text"></div></div></div>
+            </div>
+        `;
+        document.getElementById('app').appendChild(container);
+        applyElementStyle('dualMode', 'clock', 'clock-text', 'dualLeft');
+        applyElementStyle('dualMode', 'date', 'date-text', 'dualLeft');
+        applyElementStyle('dualMode', 'city', 'city-text', 'dualLeft');
+        applyElementStyle('dualMode', 'weather', 'weather-text', 'dualLeft');
+        applyElementStyle('dualMode', 'clock', 'clock-text', 'dualRight');
+        applyElementStyle('dualMode', 'date', 'date-text', 'dualRight');
+        applyElementStyle('dualMode', 'city', 'city-text', 'dualRight');
+        applyElementStyle('dualMode', 'weather', 'weather-text', 'dualRight');
+
+        let destInfo = getAirport(flight.destination);
+        let depTime = new Date(flight.departureTime);
+        let localTime = depTime.toLocaleTimeString('en-GB', { timeZone: destInfo.tz, hour:'2-digit', minute:'2-digit', hour12:false });
+        let dubaiTime = depTime.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour:'2-digit', minute:'2-digit', hour12:false });
+        document.getElementById('dualFlightBar').innerHTML = `✈️ ${flight.flightNumber} · ${flight.origin} → ${flight.destination} · 起飞 ${localTime} (当地) / ${dubaiTime} (迪拜)`;
+
+        setInterval(() => {
+            let n = new Date();
+            let leftTime = n.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour:'2-digit', minute:'2-digit' });
+            let rightTime = n.toLocaleTimeString('en-GB', { timeZone: destInfo.tz, hour:'2-digit', minute:'2-digit' });
+            document.querySelector('#dualLeft .clock-text').innerText = leftTime;
+            document.querySelector('#dualRight .clock-text').innerText = rightTime;
+            document.querySelector('#dualLeft .date-text').innerText = n.toLocaleDateString('en-US', { timeZone: DUBAI_TZ, weekday:'short', month:'short', day:'numeric' });
+            document.querySelector('#dualRight .date-text').innerText = n.toLocaleDateString('en-US', { timeZone: destInfo.tz, weekday:'short', month:'short', day:'numeric' });
+            document.querySelector('#dualLeft .city-text').innerHTML = `Dubai, UAE`;
+            document.querySelector('#dualRight .city-text').innerHTML = `${destInfo.city}, ${destInfo.country}`;
+        }, 1000);
+
+        let w1 = await fetchWeather(25.2532, 55.3657);
+        let w2 = await fetchWeather(destInfo.lat, destInfo.lon);
+        document.querySelector('#dualLeft .weather-text').innerHTML = `${w1.icon} ${w1.temp}°C`;
+        document.querySelector('#dualRight .weather-text').innerHTML = `${w2.icon} ${w2.temp}°C`;
+    }
+
+    async function buildTripleMode(flight) {
+        let container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'tripleMode';
+        container.innerHTML = `
+            <div class="triple-layout">
+                <div class="triple-top" id="tripleTopBar"></div>
+                <div class="triple-bottom">
+                    <div class="dual-panel" id="tripleLeft"><div class="draggable" data-type="clock"><div class="clock-text">--:--</div></div><div class="draggable" data-type="date"><div class="date-text"></div></div><div class="draggable" data-type="city"><div class="city-text"></div></div><div class="draggable" data-type="weather"><div class="weather-text"></div></div></div>
+                    <div class="dual-panel" id="tripleRight"><div class="draggable" data-type="clock"><div class="clock-text">--:--</div></div><div class="draggable" data-type="date"><div class="date-text"></div></div><div class="draggable" data-type="city"><div class="city-text"></div></div><div class="draggable" data-type="weather"><div class="weather-text"></div></div></div>
+                </div>
+            </div>
+        `;
+        document.getElementById('app').appendChild(container);
+        applyElementStyle('tripleMode', 'clock', 'clock-text', 'tripleLeft');
+        applyElementStyle('tripleMode', 'date', 'date-text', 'tripleLeft');
+        applyElementStyle('tripleMode', 'city', 'city-text', 'tripleLeft');
+        applyElementStyle('tripleMode', 'weather', 'weather-text', 'tripleLeft');
+        applyElementStyle('tripleMode', 'clock', 'clock-text', 'tripleRight');
+        applyElementStyle('tripleMode', 'date', 'date-text', 'tripleRight');
+        applyElementStyle('tripleMode', 'city', 'city-text', 'tripleRight');
+        applyElementStyle('tripleMode', 'weather', 'weather-text', 'tripleRight');
+
+        let destInfo = getAirport(flight.destination);
+        let dep = new Date(flight.departureTime);
+        let arr = flight.arrivalTime ? new Date(flight.arrivalTime) : new Date(dep.getTime() + 8*3600000);
+        let total = arr - dep;
+        let elapsed = Math.min(total, Math.max(0, Date.now() - dep));
+        let percent = (elapsed / total) * 100;
+        document.getElementById('tripleTopBar').innerHTML = `✈️ ${flight.flightNumber} · ${flight.origin} → ${flight.destination} · 飞行进度 ${Math.round(percent)}% · 剩余 ${Math.round((total-elapsed)/60000)}分钟`;
+
+        setInterval(() => {
+            let n = new Date();
+            let leftTime = n.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour:'2-digit', minute:'2-digit' });
+            let rightTime = n.toLocaleTimeString('en-GB', { timeZone: destInfo.tz, hour:'2-digit', minute:'2-digit' });
+            document.querySelector('#tripleLeft .clock-text').innerText = leftTime;
+            document.querySelector('#tripleRight .clock-text').innerText = rightTime;
+            document.querySelector('#tripleLeft .date-text').innerText = n.toLocaleDateString('en-US', { timeZone: DUBAI_TZ, weekday:'short', month:'short', day:'numeric' });
+            document.querySelector('#tripleRight .date-text').innerText = n.toLocaleDateString('en-US', { timeZone: destInfo.tz, weekday:'short', month:'short', day:'numeric' });
+            document.querySelector('#tripleLeft .city-text').innerHTML = `Dubai, UAE`;
+            document.querySelector('#tripleRight .city-text').innerHTML = `${destInfo.city}, ${destInfo.country}`;
+
+            let newElapsed = Math.min(total, Math.max(0, Date.now() - dep));
+            let newPercent = (newElapsed / total) * 100;
+            document.getElementById('tripleTopBar').innerHTML = `✈️ ${flight.flightNumber} · ${flight.origin} → ${flight.destination} · 飞行进度 ${Math.round(newPercent)}% · 剩余 ${Math.round((total-newElapsed)/60000)}分钟`;
+        }, 1000);
+
+        let w1 = await fetchWeather(25.2532, 55.3657);
+        let w2 = await fetchWeather(destInfo.lat, destInfo.lon);
+        document.querySelector('#tripleLeft .weather-text').innerHTML = `${w1.icon} ${w1.temp}°C`;
+        document.querySelector('#tripleRight .weather-text').innerHTML = `${w2.icon} ${w2.temp}°C`;
+    }
+
+    async function refreshDisplay() {
+        await loadData();
+        let flightObj = getFlightChain();
+        let flight = flightObj.current;
+        let state = getFlightState(flight);
+        let newMode = "single";
+        if (state === "no-flight") newMode = "single";
+        else if (state === "scheduled") newMode = "dual";
+        else newMode = "triple";
+        if (newMode === currentMode && document.getElementById(`${currentMode}Mode`)) return;
+        currentMode = newMode;
+        document.getElementById('app').innerHTML = '';
+        if (currentMode === "single") await buildSingleMode();
+        else if (currentMode === "dual") await buildDualMode(flight);
+        else await buildTripleMode(flight);
+        applyColorTheme();
+    }
+
+    async function init() {
+        let loading = document.createElement('div');
         loading.className = 'loading-overlay';
-        loading.innerText = '✈️ 正在同步飞行仪表数据...';
+        loading.innerText = '🔄 同步配置...';
         document.body.appendChild(loading);
-        
-        await syncFromCloud();
+        await loadData();
         loading.remove();
-        
-        setInterval(syncFromCloud, 30000); // 30秒同步一次云端
-        setInterval(updateContent, 1000);  // 1秒更新一次时间
-    };
+        await refreshDisplay();
+        setInterval(refreshDisplay, 60000);
+        setInterval(applyColorTheme, 300000);
+    }
+    init();
 </script>
 </body>
 </html>
