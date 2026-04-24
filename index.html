@@ -1,9 +1,10 @@
+```html
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>迪拜飞行时钟 · 家人版</title>
+    <title>Dubai Flight Clock</title>
     <style>
         * {
             margin: 0;
@@ -21,7 +22,7 @@
             overflow: hidden;
         }
 
-        /* 无航班模式 - 全屏时尚时钟 */
+        /* 无航班模式 - 全屏时钟 */
         .fullscreen-clock {
             position: relative;
             width: 100%;
@@ -31,13 +32,12 @@
             justify-content: center;
             align-items: center;
             background: linear-gradient(135deg, #0a0a0a 0%, #1a1a2e 100%);
-            transition: all 0.3s ease;
         }
 
         .big-time {
             font-size: 22vw;
             font-weight: 600;
-            font-family: 'SF Pro Display', monospace;
+            font-family: 'SF Pro Display', 'Helvetica Neue', monospace;
             letter-spacing: 8px;
             background: linear-gradient(135deg, #ffffff 0%, #d4d4ff 50%, #88aaff 100%);
             -webkit-background-clip: text;
@@ -48,15 +48,18 @@
         }
 
         .big-date {
-            font-size: 1.8vw;
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-size: 1.2vw;
             font-weight: 400;
-            color: rgba(255, 255, 255, 0.6);
+            color: rgba(255, 255, 255, 0.5);
             letter-spacing: 2px;
-            margin-top: 24px;
             text-transform: uppercase;
         }
 
-        /* 右上角天气卡片 */
         .weather-card {
             position: absolute;
             top: 24px;
@@ -70,11 +73,10 @@
         }
 
         .weather-card .weather-icon { font-size: 2rem; margin-bottom: 4px; }
-        .weather-card .weather-temp { font-size: 1.4rem; font-weight: 600; }
-        .weather-card .weather-desc { font-size: 0.7rem; color: rgba(255, 255, 255, 0.6); }
-        .weather-card .dress-tip { font-size: 0.65rem; background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 20px; margin-top: 8px; color: #ffd966; }
+        .weather-card .weather-temp { font-size: 1.3rem; font-weight: 600; }
+        .weather-card .weather-desc { font-size: 0.65rem; color: rgba(255,255,255,0.6); }
+        .weather-card .dress-tip { font-size: 0.6rem; background: rgba(255,255,255,0.1); padding: 4px 10px; border-radius: 20px; margin-top: 6px; color: #ffd966; }
 
-        /* 左下角状态 */
         .status-card {
             position: absolute;
             bottom: 24px;
@@ -86,9 +88,8 @@
             font-size: 0.7rem;
             color: rgba(255, 255, 255, 0.5);
             cursor: pointer;
-            transition: 0.2s;
+            font-family: monospace;
         }
-        .status-card:hover { background: rgba(255, 255, 255, 0.12); }
         .status-card.connected { color: #66ffaa; }
 
         /* 有航班模式 */
@@ -111,122 +112,37 @@
             border-radius: 40px;
             padding: 8px 20px;
         }
-        .flight-badge { background: rgba(255, 255, 255, 0.1); padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; margin-right: 12px; }
+        .flight-badge { background: rgba(255,255,255,0.1); padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; margin-right: 12px; }
         .auth-status { font-size: 0.7rem; color: #66ffaa; }
 
-        /* 上方航班区域 - 重点显示区域 */
         .flight-area {
             height: 32%;
-            background: linear-gradient(135deg, rgba(20, 25, 45, 0.95) 0%, rgba(15, 18, 35, 0.95) 100%);
+            background: linear-gradient(135deg, rgba(20,25,45,0.95) 0%, rgba(15,18,35,0.95) 100%);
             border-radius: 32px;
             padding: 20px;
             backdrop-filter: blur(10px);
-            border: 0.5px solid rgba(255, 255, 255, 0.1);
+            border: 0.5px solid rgba(255,255,255,0.1);
+            overflow-y: auto;
         }
 
-        .next-flight-title {
-            font-size: 0.7rem;
-            color: #ffaa66;
-            letter-spacing: 1px;
-            margin-bottom: 8px;
-        }
+        .next-flight-title { font-size: 0.7rem; color: #ffaa66; letter-spacing: 1px; margin-bottom: 8px; text-transform: uppercase; }
+        .flight-number-large { font-size: 2rem; font-weight: 700; color: #ffd966; margin-bottom: 8px; }
+        .flight-route { font-size: 0.9rem; color: #88aacc; margin-bottom: 12px; }
+        .time-card { background: rgba(0,0,0,0.4); border-radius: 20px; padding: 10px 14px; margin: 6px 0; }
+        .time-local { font-size: 1rem; margin-bottom: 4px; }
+        .time-dubai { font-size: 0.9rem; color: #66ffaa; }
+        .time-label { font-size: 0.6rem; color: #88aacc; margin-right: 8px; text-transform: uppercase; }
+        .countdown { background: #1a2a3a; border-radius: 40px; padding: 8px 14px; margin-top: 10px; text-align: center; font-size: 0.85rem; color: #ffaa66; font-weight: 600; }
+        .layover-badge { display: inline-block; background: #ff8844; color: #0a0e1a; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; font-weight: bold; margin-left: 12px; }
 
-        .flight-number-large {
-            font-size: 2rem;
-            font-weight: 700;
-            color: #ffd966;
-            margin-bottom: 8px;
-        }
-
-        .flight-route {
-            font-size: 0.9rem;
-            color: #88aacc;
-            margin-bottom: 12px;
-        }
-
-        /* 双时间显示卡片 */
-        .time-card {
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 20px;
-            padding: 12px 16px;
-            margin: 8px 0;
-        }
-
-        .time-local {
-            font-size: 1.1rem;
-            color: #ffffff;
-            margin-bottom: 6px;
-        }
-
-        .time-dubai {
-            font-size: 1rem;
-            color: #66ffaa;
-        }
-
-        .time-label {
-            font-size: 0.65rem;
-            color: #88aacc;
-            margin-right: 8px;
-        }
-
-        .countdown {
-            background: #1a2a3a;
-            border-radius: 40px;
-            padding: 10px 16px;
-            margin-top: 12px;
-            text-align: center;
-            font-size: 0.9rem;
-            color: #ffaa66;
-            font-weight: 600;
-        }
-
-        .layover-badge {
-            display: inline-block;
-            background: #ff8844;
-            color: #0a0e1a;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: bold;
-            margin-left: 12px;
-        }
-
-        /* 下方分屏 - 天气和NOTAM */
-        .bottom-area {
-            flex: 1;
-            display: flex;
-            gap: 12px;
-            min-height: 0;
-        }
-
-        .city-panel {
-            flex: 1;
-            background: rgba(10, 14, 26, 0.7);
-            backdrop-filter: blur(10px);
-            border-radius: 28px;
-            padding: 16px;
-            display: flex;
-            flex-direction: column;
-            border: 0.5px solid rgba(255, 255, 255, 0.06);
-        }
-
-        .city-name {
-            font-size: 1.5rem;
-            font-weight: 600;
-            color: #88aaff;
-            margin-bottom: 8px;
-        }
-
-        .weather-icon { font-size: 2rem; text-align: center; margin: 8px 0; }
-        .weather-temp { font-size: 1.5rem; font-weight: 600; text-align: center; }
-        .weather-desc { text-align: center; color: rgba(255, 255, 255, 0.6); font-size: 0.7rem; }
-        .dress-tip { text-align: center; background: rgba(255, 255, 255, 0.08); padding: 6px; border-radius: 20px; font-size: 0.65rem; margin-top: 8px; }
-
-        .city-clock { text-align: center; margin-top: auto; padding-top: 12px; }
-        .clock-time { font-size: 1.3rem; font-family: monospace; font-weight: 500; }
-        .clock-date { font-size: 0.6rem; color: rgba(255, 255, 255, 0.5); }
-
-        .label-sm { font-size: 0.55rem; color: rgba(255, 255, 255, 0.4); text-transform: uppercase; letter-spacing: 1px; }
+        .bottom-area { flex: 1; display: flex; gap: 12px; min-height: 0; }
+        .city-panel { flex: 1; background: rgba(10,14,26,0.7); backdrop-filter: blur(10px); border-radius: 28px; padding: 16px; display: flex; flex-direction: column; }
+        .city-name { font-size: 1.5rem; font-weight: 600; color: #88aaff; margin-bottom: 8px; }
+        .weather-icon { font-size: 1.8rem; text-align: center; margin: 8px 0; }
+        .weather-temp { font-size: 1.3rem; font-weight: 600; text-align: center; }
+        .weather-desc { text-align: center; color: rgba(255,255,255,0.6); font-size: 0.65rem; }
+        .dress-tip { text-align: center; background: rgba(255,255,255,0.08); padding: 6px; border-radius: 20px; font-size: 0.6rem; margin-top: 8px; }
+        .label-sm { font-size: 0.55rem; color: rgba(255,255,255,0.4); text-transform: uppercase; letter-spacing: 1px; }
         .notam-list { max-height: 80px; overflow-y: auto; font-size: 0.6rem; margin-top: 8px; }
         .notam-item { padding: 3px 0; color: #ffaa66; }
 
@@ -245,48 +161,33 @@
             <div class="weather-desc" id="fullscreenWeatherDesc">--</div>
             <div class="dress-tip" id="fullscreenDress">👕 --</div>
         </div>
-        <div class="status-card" id="fullscreenStatus" onclick="openControlPanel()">⚙️ 设置</div>
+        <div class="status-card" id="fullscreenStatus" onclick="openControlPanel()">⚙️ SETTINGS</div>
     </div>
 
     <!-- 有航班模式 -->
     <div id="flightMode" class="flight-mode hidden">
         <div class="status-bar">
-            <div class="flight-badge" id="flightBadge">✈️ 加载中</div>
-            <div class="auth-status" id="authStatus">✅ 已同步</div>
+            <div class="flight-badge" id="flightBadge">✈️ LOADING</div>
+            <div class="auth-status" id="authStatus">⏳ CONNECTING</div>
         </div>
-
-        <!-- 上方航班信息 - 重点显示起飞时间和倒计时 -->
         <div id="flightPanel" class="flight-area">
-            <div class="next-flight-title">✈️ 下次航班信息</div>
-            <div id="flightContent">加载中...</div>
+            <div class="next-flight-title">✈️ NEXT FLIGHT</div>
+            <div id="flightContent">Loading...</div>
         </div>
-
-        <!-- 下方天气和NOTAM -->
         <div class="bottom-area">
             <div class="city-panel">
-                <div class="label-sm">🛫 出发地天气</div>
+                <div class="label-sm">🛫 DEPARTURE</div>
                 <div class="city-name" id="originCode">DXB</div>
-                <div id="originWeather">
-                    <div class="weather-icon">🌍</div>
-                    <div class="weather-temp">--°C</div>
-                    <div class="weather-desc">加载中</div>
-                    <div class="dress-tip">👕 --</div>
-                </div>
-                <div class="label-sm" style="margin-top: 8px;">📡 NOTAM</div>
-                <div id="originNotam" class="notam-list">加载中</div>
+                <div id="originWeather"><div class="weather-icon">🌍</div><div class="weather-temp">--°C</div><div class="weather-desc">--</div><div class="dress-tip">👕 --</div></div>
+                <div class="label-sm" style="margin-top:8px;">📡 NOTAM</div>
+                <div id="originNotam" class="notam-list">--</div>
             </div>
-
             <div class="city-panel">
-                <div class="label-sm">🛬 目的地天气</div>
+                <div class="label-sm">🛬 DESTINATION</div>
                 <div class="city-name" id="destCode">---</div>
-                <div id="destWeather">
-                    <div class="weather-icon">🌍</div>
-                    <div class="weather-temp">--°C</div>
-                    <div class="weather-desc">等待航班</div>
-                    <div class="dress-tip">👕 --</div>
-                </div>
-                <div class="label-sm" style="margin-top: 8px;">📡 NOTAM</div>
-                <div id="destNotam" class="notam-list">等待航班</div>
+                <div id="destWeather"><div class="weather-icon">🌍</div><div class="weather-temp">--°C</div><div class="weather-desc">--</div><div class="dress-tip">👕 --</div></div>
+                <div class="label-sm" style="margin-top:8px;">📡 NOTAM</div>
+                <div id="destNotam" class="notam-list">--</div>
             </div>
         </div>
     </div>
@@ -301,233 +202,219 @@
         
         // 机场时区数据库
         const airportTimezone = {
-            "DXB": "Asia/Dubai",
-            "PVG": "Asia/Shanghai",
-            "PEK": "Asia/Shanghai",
-            "CAN": "Asia/Shanghai",
-            "SZX": "Asia/Shanghai",
-            "HKG": "Asia/Hong_Kong",
-            "LHR": "Europe/London",
-            "JFK": "America/New_York",
-            "CDG": "Europe/Paris",
-            "FRA": "Europe/Berlin"
+            "DXB": "Asia/Dubai", "AUH": "Asia/Dubai", "SHJ": "Asia/Dubai", "DWC": "Asia/Dubai",
+            "PVG": "Asia/Shanghai", "PEK": "Asia/Shanghai", "CAN": "Asia/Shanghai", "SZX": "Asia/Shanghai",
+            "HKG": "Asia/Hong_Kong", "LHR": "Europe/London", "JFK": "America/New_York",
+            "CDG": "Europe/Paris", "FRA": "Europe/Berlin", "AMS": "Europe/Amsterdam", "SYD": "Australia/Sydney"
         };
         
-        function getAirportTz(code) {
-            return airportTimezone[code] || "Asia/Dubai";
-        }
-        
-        // ============================================================
-        // 辅助函数
-        // ============================================================
+        function getAirportTz(code) { return airportTimezone[code] || "Asia/Dubai"; }
         function formatTimeInTz(date, tz) {
-            return new Date(date).toLocaleTimeString('zh-CN', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
-        }
-        
-        function formatDateTimeInTz(date, tz) {
-            return new Date(date).toLocaleString('zh-CN', { timeZone: tz, hour: '2-digit', minute: '2-digit', month: '2-digit', day: '2-digit', hour12: false });
+            return new Date(date).toLocaleTimeString('en-GB', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
         }
         
         function getCountdown(targetTime) {
             const now = new Date();
             const target = new Date(targetTime);
-            if (target <= now) return "✈️ 已起飞";
+            if (target <= now) return "✈️ DEPARTED";
             const diffMs = target - now;
             const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
             const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
             if (diffHours >= 24) {
                 const diffDays = Math.floor(diffHours / 24);
-                return `⏱️ ${diffDays}天${diffHours % 24}小时${diffMins}分钟`;
+                return `⏱️ ${diffDays}D ${diffHours % 24}H ${diffMins}M`;
             }
-            return `⏱️ ${diffHours}小时${diffMins}分钟`;
+            return `⏱️ ${diffHours}H ${diffMins}M`;
         }
         
-        function showToast(msg) {
-            console.log(msg);
+        function getWeatherIcon(weatherMain) {
+            const icons = { "Clear": "☀️", "Sunny": "☀️", "Clouds": "☁️", "Partly Clouds": "⛅", "Rain": "🌧️", "Drizzle": "🌦️", "Snow": "❄️", "Thunderstorm": "⛈️", "Mist": "🌫️", "Fog": "🌫️" };
+            return icons[weatherMain] || "🌍";
         }
         
         // ============================================================
-        // 天气获取
+        // 天气 API
         // ============================================================
         async function getWeather(lat, lon) {
             try {
-                const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${WEATHER_KEY}&lang=zh_cn`;
+                const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&units=metric&appid=${WEATHER_KEY}`;
                 const resp = await fetch(url);
                 const data = await resp.json();
                 if (data.cod === 200) {
-                    let dress = "舒适";
+                    let dress = "Comfortable";
                     const t = data.main.temp;
-                    if (t < 5) dress = "羽绒服";
-                    else if (t < 15) dress = "风衣";
-                    else if (t < 25) dress = "薄外套";
-                    else if (t >= 30) dress = "短袖+防晒";
-                    const icons = { "Clear": "☀️", "Clouds": "☁️", "Rain": "🌧️", "Snow": "❄️" };
+                    if (t < 5) dress = "Winter Coat";
+                    else if (t < 15) dress = "Jacket";
+                    else if (t < 25) dress = "Light Jacket";
+                    else if (t >= 30) dress = "T-Shirt + Sunscreen";
                     return {
                         temp: Math.round(t),
                         desc: data.weather[0].description,
-                        icon: icons[data.weather[0].main] || "🌍",
+                        main: data.weather[0].main,
+                        icon: getWeatherIcon(data.weather[0].main),
                         dress: dress
                     };
                 }
             } catch(e) {}
-            return { temp: 22, desc: "晴", icon: "☀️", dress: "舒适" };
+            return { temp: 22, desc: "Clear", icon: "☀️", dress: "Comfortable" };
         }
         
-        // 机场坐标
         const airportCoords = {
-            "DXB": { lat: 25.2532, lon: 55.3657 },
-            "PVG": { lat: 31.1443, lon: 121.8083 },
-            "PEK": { lat: 40.0799, lon: 116.6031 },
-            "LHR": { lat: 51.4700, lon: -0.4543 }
+            "DXB": { lat: 25.2532, lon: 55.3657 }, "PVG": { lat: 31.1443, lon: 121.8083 },
+            "PEK": { lat: 40.0799, lon: 116.6031 }, "LHR": { lat: 51.4700, lon: -0.4543 },
+            "JFK": { lat: 40.6413, lon: -73.7781 }, "CDG": { lat: 49.0097, lon: 2.5479 }
         };
         
         // ============================================================
-        // 显示航班信息（核心）
+        // Google 日历集成
         // ============================================================
-        let currentFlightData = null;
+        let accessToken = null;
+        let tokenClient = null;
+        
+        async function fetchCalendarEvents() {
+            if (!accessToken) return null;
+            try {
+                const now = new Date();
+                const plus72h = new Date(now.getTime() + 72 * 3600000);
+                const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${plus72h.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=10`;
+                const resp = await fetch(url, { headers: { 'Authorization': `Bearer ${accessToken}` } });
+                const data = await resp.json();
+                if (data.error) return null;
+                if (data.items) {
+                    for (const ev of data.items) {
+                        const flight = parseFlightEvent(ev);
+                        if (flight) return flight;
+                    }
+                }
+                return null;
+            } catch(e) { return null; }
+        }
+        
+        function parseFlightEvent(event) {
+            const text = (event.summary || "").toUpperCase();
+            const codeMatch = text.match(/\b([A-Z]{3})\b.*?\b([A-Z]{3})\b/);
+            if (!codeMatch) return null;
+            const startTime = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+            if (!startTime) return null;
+            const numMatch = text.match(/\b(\d{3,4})\b/);
+            let flightNum = numMatch ? `EK${numMatch[1]}` : `${codeMatch[1]}${codeMatch[2]}`;
+            return {
+                flightNumber: flightNum,
+                origin: codeMatch[1],
+                destination: codeMatch[2],
+                departureTime: startTime,
+                pickupTime: new Date(startTime.getTime() - 135*60000)
+            };
+        }
+        
+        // ============================================================
+        // 显示逻辑
+        // ============================================================
+        let currentFlight = null;
         let refreshTimer = null;
         
-        function loadFlightFromStorage() {
+        async function loadFlightFromAllSources() {
+            // 优先级1: 手动添加的航班 (localStorage last_flight)
+            let flight = null;
             try {
                 const saved = localStorage.getItem('last_flight');
-                if (saved) {
-                    currentFlightData = JSON.parse(saved);
-                    displayFlightInfo(currentFlightData);
-                    document.getElementById('flightMode').classList.remove('hidden');
-                    document.getElementById('fullscreenMode').classList.add('hidden');
-                } else {
-                    document.getElementById('flightMode').classList.add('hidden');
-                    document.getElementById('fullscreenMode').classList.remove('hidden');
-                    updateFullscreenClock();
-                }
-            } catch(e) {
+                if (saved) flight = JSON.parse(saved);
+            } catch(e) {}
+            
+            // 优先级2: Google 日历
+            if (!flight && accessToken) {
+                const calendarFlight = await fetchCalendarEvents();
+                if (calendarFlight) flight = calendarFlight;
+            }
+            
+            // 优先级3: 控制面板数据库
+            if (!flight) {
+                try {
+                    const db = localStorage.getItem('flight_calendar_db');
+                    if (db) {
+                        const flightsDB = JSON.parse(db);
+                        let allFlights = [];
+                        for (let date in flightsDB) {
+                            for (let f of flightsDB[date]) allFlights.push(f);
+                        }
+                        const now = new Date();
+                        const future = allFlights.filter(f => new Date(f.departureTime) > now);
+                        future.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
+                        if (future.length > 0) flight = future[0];
+                        else if (allFlights.length > 0) flight = allFlights[0];
+                    }
+                } catch(e) {}
+            }
+            
+            if (flight) {
+                currentFlight = flight;
+                displayFlightInfo(flight);
+                document.getElementById('flightMode').classList.remove('hidden');
+                document.getElementById('fullscreenMode').classList.add('hidden');
+                document.getElementById('authStatus').innerHTML = "✅ SYNCED";
+                document.getElementById('authStatus').classList.add('connected');
+            } else {
                 document.getElementById('flightMode').classList.add('hidden');
                 document.getElementById('fullscreenMode').classList.remove('hidden');
                 updateFullscreenClock();
+                document.getElementById('authStatus').innerHTML = accessToken ? "✅ SYNCED" : "⏳ CONNECTING";
             }
         }
         
-        function displayFlightInfo(flight) {
-            if (!flight) return;
-            
-            const originTz = getAirportTz(flight.origin);
+        async function displayFlightInfo(flight) {
             const destTz = getAirportTz(flight.destination);
-            
-            // 计算取车时间（起飞前2小时15分）
             const depTime = new Date(flight.departureTime);
             const pickupTime = new Date(depTime.getTime() - 135 * 60000);
-            
-            // 起飞时间双显示
             const depLocal = formatTimeInTz(depTime, destTz);
             const depDubai = formatTimeInTz(depTime, DUBAI_TZ);
-            const depDate = depTime.toLocaleDateString('zh-CN', { timeZone: destTz, month: 'numeric', day: 'numeric' });
-            
-            // 取车时间双显示
+            const depDate = depTime.toLocaleDateString('en-US', { timeZone: destTz, month: 'short', day: 'numeric' });
             const pickupLocal = formatTimeInTz(pickupTime, destTz);
             const pickupDubai = formatTimeInTz(pickupTime, DUBAI_TZ);
-            
-            // 倒计时
             const countdown = getCountdown(depTime);
-            
-            // 是否Layover
             const isLayover = flight.isLayover || false;
             
-            // 构建HTML
             let html = `
-                <div class="flight-number-large">
-                    ✈️ ${flight.flightNumber}
-                    ${isLayover ? '<span class="layover-badge">🛏️ Layover中转停留</span>' : ''}
-                </div>
+                <div class="flight-number-large">✈️ ${flight.flightNumber}${isLayover ? '<span class="layover-badge">🛏️ LAYOVER</span>' : ''}</div>
                 <div class="flight-route">🛫 ${flight.origin} → 🛬 ${flight.destination}</div>
-                
                 <div class="time-card">
-                    <div class="time-local">
-                        <span class="time-label">🛫 起飞时间</span>
-                        <span style="font-size:1.2rem; font-weight:600;">${depLocal}</span>
-                        <span style="font-size:0.8rem; color:#88aacc;"> (${flight.destination}当地时间)</span>
-                    </div>
-                    <div class="time-dubai">
-                        <span class="time-label">🕐 对应迪拜时间</span>
-                        ${depDubai} (${depDate})
-                    </div>
+                    <div class="time-local"><span class="time-label">🛫 DEPARTURE</span>${depLocal} (LOCAL)</div>
+                    <div class="time-dubai"><span class="time-label">🕐 DUBAI TIME</span>${depDubai} (${depDate})</div>
                 </div>
-                
                 <div class="time-card">
-                    <div class="time-local">
-                        <span class="time-label">🚗 取车时间</span>
-                        <span style="font-weight:600;">${pickupLocal}</span>
-                        <span style="font-size:0.8rem; color:#88aacc;"> (起飞前2小时15分)</span>
-                    </div>
-                    <div class="time-dubai">
-                        <span class="time-label">🕐 对应迪拜时间</span>
-                        ${pickupDubai}
-                    </div>
+                    <div class="time-local"><span class="time-label">🚗 PICKUP</span>${pickupLocal} (2h15m before)</div>
+                    <div class="time-dubai"><span class="time-label">🕐 DUBAI TIME</span>${pickupDubai}</div>
                 </div>
-                
-                <div class="countdown">
-                    ${countdown}
-                </div>
+                <div class="countdown">${countdown}</div>
             `;
             
-            // 如果有下一段航班
             if (flight.nextFlight) {
                 const nextDep = new Date(flight.nextFlight.departureTime);
-                const nextLocal = formatTimeInTz(nextDep, getAirportTz(flight.nextFlight.origin));
                 const nextDubai = formatTimeInTz(nextDep, DUBAI_TZ);
-                const layoverGap = (nextDep - depTime) / (1000 * 60 * 60);
-                
-                html += `
-                    <div class="time-card" style="margin-top:12px; border-left-color:#ff8844;">
-                        <div class="time-local" style="color:#ffaa66;">
-                            🔄 下一段航班: ${flight.nextFlight.flightNumber}
-                            <span style="font-size:0.7rem;"> (${layoverGap.toFixed(1)}小时后)</span>
-                        </div>
-                        <div class="flight-route" style="margin-bottom:8px;">🛫 ${flight.nextFlight.origin} → 🛬 ${flight.nextFlight.destination}</div>
-                        <div class="time-local">
-                            <span class="time-label">🛫 起飞时间</span>
-                            ${nextLocal} (当地时间)
-                        </div>
-                        <div class="time-dubai">
-                            <span class="time-label">🕐 对应迪拜时间</span>
-                            ${nextDubai}
-                        </div>
-                    </div>
-                `;
+                html += `<div class="time-card" style="margin-top:10px; border-left-color:#ff8844;"><div class="time-local" style="color:#ffaa66;">🔄 NEXT: ${flight.nextFlight.flightNumber} (${flight.nextFlight.origin}→${flight.nextFlight.destination})</div><div class="time-dubai"><span class="time-label">🕐 DUBAI TIME</span>${nextDubai}</div></div>`;
             }
             
             document.getElementById('flightContent').innerHTML = html;
             document.getElementById('flightBadge').innerHTML = `✈️ ${flight.flightNumber}`;
-            
-            // 天气信息
-            updateWeatherForAirport(flight.origin, 'originWeather', 'originNotam');
-            updateWeatherForAirport(flight.destination, 'destWeather', 'destNotam');
-            
-            // 更新城市代码显示
             document.getElementById('originCode').innerText = flight.origin;
             document.getElementById('destCode').innerText = flight.destination;
+            
+            const originCoords = airportCoords[flight.origin] || { lat: 25.2532, lon: 55.3657 };
+            const destCoords = airportCoords[flight.destination] || { lat: 51.4700, lon: -0.4543 };
+            const w1 = await getWeather(originCoords.lat, originCoords.lon);
+            const w2 = await getWeather(destCoords.lat, destCoords.lon);
+            
+            document.getElementById('originWeather').innerHTML = `<div class="weather-icon">${w1.icon}</div><div class="weather-temp">${w1.temp}°C</div><div class="weather-desc">${w1.desc}</div><div class="dress-tip">👕 ${w1.dress}</div>`;
+            document.getElementById('destWeather').innerHTML = `<div class="weather-icon">${w2.icon}</div><div class="weather-temp">${w2.temp}°C</div><div class="weather-desc">${w2.desc}</div><div class="dress-tip">👕 ${w2.dress}</div>`;
+            document.getElementById('originNotam').innerHTML = '<div class="notam-item">No active NOTAM</div>';
+            document.getElementById('destNotam').innerHTML = '<div class="notam-item">No active NOTAM</div>';
         }
         
-        async function updateWeatherForAirport(code, weatherDivId, notamDivId) {
-            const coords = airportCoords[code] || { lat: 25.2532, lon: 55.3657 };
-            const weather = await getWeather(coords.lat, coords.lon);
-            document.getElementById(weatherDivId).innerHTML = `
-                <div class="weather-icon">${weather.icon}</div>
-                <div class="weather-temp">${weather.temp}°C</div>
-                <div class="weather-desc">${weather.desc}</div>
-                <div class="dress-tip">👕 ${weather.dress}</div>
-            `;
-            document.getElementById(notamDivId).innerHTML = '<div class="notam-item">暂无重要通告</div>';
-        }
-        
-        // ============================================================
-        // 全屏时钟（无航班时）
-        // ============================================================
+        // 全屏时钟
         let fullscreenTimer = null;
-        
-        function updateFullscreenClock() {
+        async function updateFullscreenClock() {
             function tick() {
                 const now = new Date();
-                const dubaiTime = now.toLocaleTimeString('zh-CN', { timeZone: DUBAI_TZ, hour12: false }).slice(0,5);
+                const dubaiTime = now.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour12: false }).slice(0,5);
                 const dubaiDate = now.toLocaleDateString('en-US', { timeZone: DUBAI_TZ, weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
                 document.getElementById('fullscreenTime').innerText = dubaiTime;
                 document.getElementById('fullscreenDate').innerHTML = dubaiDate;
@@ -535,50 +422,45 @@
             tick();
             if (fullscreenTimer) clearInterval(fullscreenTimer);
             fullscreenTimer = setInterval(tick, 60000);
-            
-            getWeather(25.2532, 55.3657).then(w => {
-                document.getElementById('fullscreenWeatherIcon').innerText = w.icon;
-                document.getElementById('fullscreenWeatherTemp').innerText = `${w.temp}°C`;
-                document.getElementById('fullscreenWeatherDesc').innerText = w.desc;
-                document.getElementById('fullscreenDress').innerHTML = `👕 ${w.dress}`;
+            const weather = await getWeather(25.2532, 55.3657);
+            document.getElementById('fullscreenWeatherIcon').innerText = weather.icon;
+            document.getElementById('fullscreenWeatherTemp').innerText = `${weather.temp}°C`;
+            document.getElementById('fullscreenWeatherDesc').innerText = weather.desc;
+            document.getElementById('fullscreenDress').innerHTML = `👕 ${weather.dress}`;
+        }
+        
+        function openControlPanel() { window.open('control.html', '_blank', 'width=450,height=700'); }
+        
+        // Google 授权
+        function initGoogleAuth() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_CLIENT_ID,
+                scope: 'https://www.googleapis.com/auth/calendar.readonly',
+                callback: async (resp) => {
+                    if (resp.access_token) {
+                        accessToken = resp.access_token;
+                        document.getElementById('authStatus').innerHTML = "✅ SYNCED";
+                        document.getElementById('fullscreenStatus').innerHTML = "⚙️ SETTINGS";
+                        document.getElementById('fullscreenStatus').classList.add('connected');
+                        await loadFlightFromAllSources();
+                        setInterval(async () => { await loadFlightFromAllSources(); }, 10 * 60 * 1000);
+                    }
+                },
             });
+            setTimeout(() => { if (!accessToken) tokenClient.requestAccessToken(); }, 500);
         }
         
-        // ============================================================
-        // 控制面板
-        // ============================================================
-        function openControlPanel() {
-            window.open('control.html', '_blank', 'width=450,height=700');
-        }
+        // 监听 storage 变化
+        window.addEventListener('storage', (e) => {
+            if (e.key === 'last_flight' || e.key === 'flight_calendar_db') loadFlightFromAllSources();
+        });
         
-        // ============================================================
-        // 定时刷新
-        // ============================================================
-        function startAutoRefresh() {
-            if (refreshTimer) clearInterval(refreshTimer);
-            refreshTimer = setInterval(() => {
-                loadFlightFromStorage();
-                // 如果有航班，刷新倒计时显示
-                if (currentFlightData) {
-                    displayFlightInfo(currentFlightData);
-                }
-            }, 60000); // 每分钟刷新一次
-        }
-        
-        // ============================================================
-        // 初始化
-        // ============================================================
         window.onload = () => {
-            loadFlightFromStorage();
-            startAutoRefresh();
-            
-            // 监听localStorage变化（控制面板修改时自动更新）
-            window.addEventListener('storage', (e) => {
-                if (e.key === 'last_flight') {
-                    loadFlightFromStorage();
-                }
-            });
+            initGoogleAuth();
+            loadFlightFromAllSources();
+            setInterval(() => { if (currentFlight) displayFlightInfo(currentFlight); }, 60000);
         };
     </script>
 </body>
 </html>
+```
