@@ -2,215 +2,230 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>EK Pilot HUD Controller</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>航班控制台 · 终极同步版</title>
     <style>
-        :root { --primary: #d71920; --bg: #f4f7f6; --text: #2c3e50; }
-        body { font-family: -apple-system, sans-serif; background: var(--bg); margin: 0; padding: 15px; padding-bottom: 80px; }
-        .card { background: white; border-radius: 15px; padding: 15px; margin-bottom: 15px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        
-        /* 1. 日历风格 */
-        #calendar { width: 100%; border: none; font-size: 18px; font-weight: bold; color: var(--primary); background: transparent; cursor: pointer; }
-        
-        /* 2. 搜索弹窗 */
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center; }
-        .modal-content { background: white; width: 90%; max-width: 400px; border-radius: 20px; padding: 25px; }
-        .search-input-group { display: flex; gap: 10px; margin-bottom: 15px; }
-        
-        /* 3. 自动生成的回程卡片 */
-        #return-hint { display: none; background: #e8f4fd; border: 1px solid #3498db; padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 13px; }
-        
-        /* 4. 20+ 风格滚动条 */
-        .style-scroller { display: flex; overflow-x: auto; gap: 12px; padding-bottom: 10px; }
-        .style-item { flex: 0 0 100px; text-align: center; cursor: pointer; }
-        .style-thumb { width: 100px; height: 60px; background: #333; border-radius: 8px; border: 2px solid transparent; display: flex; align-items: center; justify-content: center; color: white; font-size: 10px; }
-        .style-item.active .style-thumb { border-color: var(--primary); box-shadow: 0 0 8px rgba(215,25,32,0.4); }
-
-        /* 5. Token 隐私 */
-        .token-box { display: flex; align-items: center; gap: 10px; }
-        #token-display { flex: 1; padding: 10px; background: #eee; border-radius: 6px; font-size: 12px; overflow: hidden; text-overflow: ellipsis; }
-
-        input, select, button { border: 1px solid #ddd; border-radius: 8px; padding: 12px; font-size: 16px; }
-        .btn-sync { position: fixed; bottom: 0; left: 0; width: 100%; background: var(--primary); color: white; border: none; padding: 20px; font-size: 18px; font-weight: bold; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { background: #eef2f5; color: #1a2a3a; font-family: -apple-system, 'SF Pro Display', sans-serif; padding: 16px; min-height: 100vh; }
+        .container { max-width: 550px; margin: 0 auto; }
+        .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; }
+        h1 { font-size: 1.6rem; font-weight: 600; color: #2c5f8a; letter-spacing: -0.5px; }
+        .settings-icon { background: #d4e0e8; padding: 8px 12px; border-radius: 30px; font-size: 0.7rem; cursor: pointer; color: #2c5f8a; }
+        .calendar-card { background: white; border-radius: 32px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); }
+        .month-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .month-nav button { background: #e0e8f0; border: none; width: 40px; height: 40px; border-radius: 40px; font-size: 1.2rem; cursor: pointer; color: #2c5f8a; }
+        .current-month { font-size: 1.2rem; font-weight: 600; color: #2c5f8a; }
+        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 12px; }
+        .weekday { font-size: 0.75rem; font-weight: 500; color: #6a8aaa; }
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+        .cal-day { aspect-ratio: 1; background: #f5f8fa; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; transition: 0.2s; font-weight: 500; }
+        .cal-day.today { background: #2c5f8a; color: white; }
+        .cal-day.has-flight { background: #c8e0d0; color: #2c5f8a; }
+        .cal-day.selected { background: #ffaa44; color: white; }
+        .cal-day.other-month { opacity: 0.4; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); backdrop-filter: blur(4px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .modal { background: white; border-radius: 32px; padding: 24px; width: 90%; max-width: 450px; max-height: 85vh; overflow-y: auto; }
+        .modal input, .modal select, .modal textarea { width: 100%; padding: 14px; border: 1px solid #d0dce5; border-radius: 20px; font-size: 1rem; margin-bottom: 12px; background: #f5f8fa; }
+        .btn-primary { background: #2c5f8a; color: white; border: none; width: 100%; padding: 14px; border-radius: 40px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+        .btn-secondary { background: #e0e8f0; color: #2c5f8a; border: none; width: 100%; padding: 14px; border-radius: 40px; cursor: pointer; margin-top: 8px; }
+        .style-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; margin: 16px 0; }
+        .style-item { background: #f5f8fa; border-radius: 20px; padding: 12px; text-align: center; cursor: pointer; border: 2px solid transparent; }
+        .style-item.selected { border-color: #ffaa44; background: #fff5e6; }
+        .toast { position: fixed; bottom: 40px; left: 20px; right: 20px; background: #2c5f8a; color: white; text-align: center; padding: 12px; border-radius: 40px; z-index: 2000; }
+        .flight-row-item { background: #f5f8fa; border: 1px solid #e0e8f0; padding: 12px; border-radius: 15px; margin-top: 8px; cursor: pointer; }
     </style>
 </head>
 <body>
-
-<div class="card">
-    <label style="font-size:12px; color:#999;">📅 选择日期 (触发航班添加)</label>
-    <input type="date" id="calendar" onchange="triggerSearch()">
-</div>
-
-<div class="card">
-    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-        <input type="text" id="f_dep" placeholder="起飞 (DXB)" oninput="handleAutoReturn()">
-        <input type="text" id="f_arr" placeholder="目的地">
+<div class="container">
+    <div class="header">
+        <h1>✈️ 航班控制台</h1>
+        <div class="settings-icon" id="openSettingsBtn">⚙️ 设置</div>
     </div>
-    <div style="margin-top:10px;">
-        <label style="font-size:12px; color:#999;">起飞时间 (4位数字如 0930)</label>
-        <input type="tel" id="f_std" placeholder="00:00" maxlength="4" onblur="formatInputTime(this)">
-    </div>
-    
-    <div id="return-hint">
-        💡 检测到非迪拜起程，是否自动生成回程航班 (Return to DXB)？
-        <button onclick="applyAutoReturn()" style="margin-top:5px; padding:5px 10px; font-size:12px;">立即生成</button>
-    </div>
-</div>
-
-<div class="card">
-    <label style="font-size:12px; color:#999; display:block; margin-bottom:10px;">🎨 仪表盘风格预览</label>
-    <div class="style-scroller" id="style-picker"></div>
-</div>
-
-<div class="card">
-    <div id="token-view" class="token-box">
-        <div id="token-display">●●●●●●●●●●●●●●●●</div>
-        <button onclick="showTokenEdit()" style="font-size:12px;">修改 Token</button>
-    </div>
-    <div id="token-edit" class="token-box" style="display:none;">
-        <input type="password" id="gh_token" placeholder="粘贴 GitHub Token" style="flex:1">
-        <button onclick="saveToken()">保存</button>
-    </div>
-</div>
-
-<div class="modal" id="searchModal">
-    <div class="modal-content">
-        <h3 style="margin-top:0">智能搜索 (EK 默认)</h3>
-        <div class="search-input-group">
-            <input type="tel" id="search_no" placeholder="输入 343 或 8343" style="flex:1">
-            <button onclick="performEKSearch()" style="background:var(--primary); color:white;">🔍</button>
+    <div class="calendar-card">
+        <div class="month-nav">
+            <button id="prevMonthBtn">◀</button>
+            <span class="current-month" id="currentMonth"></span>
+            <button id="nextMonthBtn">▶</button>
         </div>
-        <div id="search-results" style="max-height:200px; overflow-y:auto;"></div>
-        <button onclick="closeModal()" style="width:100%; border:none; background:none; margin-top:15px; color:#999;">取消</button>
+        <div class="weekdays">
+            <div class="weekday">S</div><div class="weekday">M</div><div class="weekday">T</div>
+            <div class="weekday">W</div><div class="weekday">T</div><div class="weekday">F</div><div class="weekday">S</div>
+        </div>
+        <div class="calendar-grid" id="calendarGrid"></div>
+    </div>
+    <div id="flightListContainer" style="background:white; border-radius:32px; padding:20px; box-shadow:0 4px 15px rgba(0,0,0,0.05);">
+        <div style="font-size:0.8rem; color:#6a8aaa; margin-bottom:12px;">📋 当天任务</div>
+        <div id="dayFlightsList">点击日期添加航班</div>
     </div>
 </div>
-
-<button class="btn-sync" onclick="syncAll()">🚀 同步到 iPad 屏幕</button>
 
 <script>
-    const CONFIG = {
-        gistId: "6b51ae2b894903de0227eaec5e0ce842",
-        aviKey: "b4bd321bbba1723162801cce3c455d7c"
-    };
+    let GIST_ID = localStorage.getItem('gist_id') || "6b51ae2b894903de0227eaec5e0ce842";
+    let AVI_KEY = localStorage.getItem('aviation_api_key') || "b4bd321bbba1723162801cce3c455d7c";
+    let GH_TOKEN = localStorage.getItem('gh_token') || "";
 
-    let selectedStyle = 'style-1';
+    let flightsDB = JSON.parse(localStorage.getItem('flight_calendar_db')) || {};
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let selectedDate = null;
+    let currentStyleIdx = localStorage.getItem('clock_style') || 0;
 
-    // 初始化 20+ 风格
-    const styleBox = document.getElementById('style-picker');
-    for(let i=1; i<=20; i++) {
-        const item = document.createElement('div');
-        item.className = i === 1 ? 'style-item active' : 'style-item';
-        item.innerHTML = `<div class="style-thumb">STYLE ${i}</div><div style="font-size:10px; margin-top:5px;">面板 ${i}</div>`;
-        item.onclick = () => {
-            document.querySelectorAll('.style-item').forEach(el => el.classList.remove('active'));
-            item.classList.add('active');
-            selectedStyle = 'style-' + i;
-        };
-        styleBox.appendChild(item);
+    function showToast(msg) {
+        const t = document.createElement('div'); t.className = 'toast'; t.innerText = msg;
+        document.body.appendChild(t); setTimeout(() => t.remove(), 2500);
     }
 
-    // 1. 日历触发
-    function triggerSearch() {
-        document.getElementById('searchModal').style.display = 'flex';
-        document.getElementById('search_no').focus();
+    // 智能转换：输入 493 -> EK493
+    function smartFlight(input) {
+        let n = input.trim().toUpperCase();
+        if (/^\d+$/.length) return n.length === 3 ? "EK0"+n : "EK"+n;
+        return n.startsWith('EK') ? n : 'EK' + n;
     }
 
-    function closeModal() { document.getElementById('searchModal').style.display = 'none'; }
-
-    // 2. 航班搜索逻辑 (智能 EK 匹配)
-    async function performEKSearch() {
-        let no = document.getElementById('search_no').value.trim();
-        if(!no) return;
-        let query = no.toUpperCase().startsWith('EK') ? no : 'EK' + no;
-        
-        const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.aviKey}&flight_iata=${query}`);
-        const json = await res.json();
-        
-        const resDiv = document.getElementById('search-results');
-        resDiv.innerHTML = "";
-
-        if(json.data && json.data.length > 0) {
-            json.data.forEach(f => {
-                const opt = document.createElement('div');
-                opt.style.padding = '10px'; opt.style.borderBottom = '1px solid #eee';
-                opt.innerHTML = `<b>${f.departure.iata} ➔ ${f.arrival.iata}</b><br><small>STD: ${f.departure.scheduled.substring(11,16)}</small>`;
-                opt.onclick = () => {
-                    document.getElementById('f_dep').value = f.departure.iata;
-                    document.getElementById('f_arr').value = f.arrival.iata;
-                    document.getElementById('f_std').value = f.departure.scheduled.substring(11,16);
-                    closeModal();
-                    handleAutoReturn();
-                };
-                resDiv.appendChild(opt);
-            });
-        } else if(no.length > 3) {
-            // 容错：如果 8343 搜不到，截取后三位搜 343
-            document.getElementById('search_no').value = no.slice(-3);
-            performEKSearch();
-        }
-    }
-
-    // 3. 时间格式化 (0930 -> 09:30)
-    function formatInputTime(input) {
+    // 时间纠错：输入 0830 -> 08:30
+    function formatTime4Digits(input) {
         let v = input.value.replace(':', '');
-        if(v.length === 4) {
-            input.value = v.substring(0, 2) + ":" + v.substring(2, 4);
-        }
+        if (v.length === 4) input.value = v.slice(0, 2) + ":" + v.slice(2, 4);
     }
 
-    // 4. 回程自动生成逻辑
-    function handleAutoReturn() {
-        const dep = document.getElementById('f_dep').value.toUpperCase();
-        const hint = document.getElementById('return-hint');
-        hint.style.display = (dep !== 'DXB' && dep !== "") ? 'block' : 'none';
-    }
-
-    function applyAutoReturn() {
-        const currentArr = document.getElementById('f_arr').value;
-        const currentDep = document.getElementById('f_dep').value;
-        // 自动互换起降
-        document.getElementById('f_dep').value = currentArr;
-        document.getElementById('f_arr').value = "DXB";
-        document.getElementById('return-hint').style.display = 'none';
-    }
-
-    // 5. Token 隐私管理
-    function saveToken() {
-        const tk = document.getElementById('gh_token').value;
-        if(tk) {
-            localStorage.setItem('user_gh_token', tk);
-            document.getElementById('token-view').style.display = 'flex';
-            document.getElementById('token-edit').style.display = 'none';
-        }
-    }
-    function showTokenEdit() {
-        document.getElementById('token-view').style.display = 'none';
-        document.getElementById('token-edit').style.display = 'flex';
-    }
-
-    // 6. 同步
-    async function syncAll() {
-        const token = localStorage.getItem('user_gh_token');
-        if(!token) return showTokenEdit();
+    // 核心通讯：同步到 GitHub Gist
+    async function syncToGist() {
+        if (!GH_TOKEN || !GIST_ID) return showToast("⚠️ 请先在设置中填写 Token");
+        
+        let all = [];
+        for (let d in flightsDB) flightsDB[d].forEach(f => all.push(f));
+        all.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
+        
+        // 筛选逻辑：同步离现在最近的一班给时钟
+        let now = new Date();
+        let active = all.find(f => new Date(f.departureTime) > new Date(now.getTime() - 6*3600000)) || all[0];
 
         const payload = {
-            style: selectedStyle,
-            dep: document.getElementById('f_dep').value.toUpperCase(),
-            arr: document.getElementById('f_arr').value.toUpperCase(),
-            std: document.getElementById('calendar').value + " " + document.getElementById('f_std').value,
-            ts: Date.now()
+            flightNo: active ? active.flightNumber : "EK ---",
+            dep: active ? active.origin : "---",
+            arr: active ? active.destination : "---",
+            std: active ? active.departureTime : "",
+            style: `style-${currentStyleIdx}`,
+            ts: new Date().toISOString()
         };
 
-        const res = await fetch(`https://api.github.com/gists/${CONFIG.gistId}`, {
-            method: "PATCH",
-            headers: { "Authorization": `token ${token}` },
-            body: JSON.stringify({ files: { "flight_data.json": { content: JSON.stringify(payload) } } })
-        });
-        if(res.ok) alert("同步成功！iPad 已感知。");
+        try {
+            const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files: { 'flight_data.json': { content: JSON.stringify(payload, null, 2) }, 'calendar_db.json': { content: JSON.stringify(flightsDB) } } })
+            });
+            if (res.ok) showToast("🚀 iPad 已同步");
+        } catch (e) { showToast("❌ 同步失败"); }
     }
 
-    // 页面加载检查 Token
-    if(!localStorage.getItem('user_gh_token')) showTokenEdit();
+    function saveFlight(date, fn, org, dst, time) {
+        if (!flightsDB[date]) flightsDB[date] = [];
+        flightsDB[date].push({ id: Date.now(), flightNumber: fn, origin: org.toUpperCase(), destination: dst.toUpperCase(), departureTime: time });
+        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+        syncToGist(); renderCalendar(); renderDayFlights();
+    }
+
+    function openFlightModal(dateStr) {
+        const modal = document.createElement('div'); modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal">
+                <div style="font-weight:600; margin-bottom:15px; color:#2c5f8a;">✈️ 添加任务 · ${dateStr}</div>
+                <input type="text" id="mFno" placeholder="航班号 (如 303)">
+                <div style="display:flex; gap:10px;">
+                    <input type="text" id="mDep" placeholder="起飞 DXB" style="flex:1">
+                    <input type="text" id="mArr" placeholder="到达 PVG" style="flex:1">
+                </div>
+                <input type="text" id="mTime" placeholder="起飞时间 (如 0345)" maxlength="4" onblur="formatTime4Digits(this)">
+                <button class="btn-primary" onclick="doSearch()">🔍 智能检索</button>
+                <div id="searchRes" style="margin:10px 0;"></div>
+                <button class="btn-primary" id="confirmAdd" style="background:#34c759; display:none;">✅ 确认同步</button>
+                <button class="btn-secondary" onclick="this.closest('.modal-overlay').remove()">取消</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        window.doSearch = async () => {
+            let fn = smartFlight(document.getElementById('mFno').value);
+            document.getElementById('searchRes').innerText = "检索中...";
+            try {
+                const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${AVI_KEY}&flight_iata=${fn}`);
+                const json = await res.json();
+                if (json.data && json.data.length > 0) {
+                    let f = json.data[0];
+                    document.getElementById('mDep').value = f.departure.iata;
+                    document.getElementById('mArr').value = f.arrival.iata;
+                    document.getElementById('mTime').value = f.departure.scheduled.substring(11, 16).replace(':','');
+                    document.getElementById('searchRes').innerText = "✅ 自动填充成功";
+                    document.getElementById('confirmAdd').style.display = 'block';
+                } else { document.getElementById('searchRes').innerText = "未找到动态，请手动补全后确认"; document.getElementById('confirmAdd').style.display = 'block'; }
+            } catch(e) { document.getElementById('searchRes').innerText = "API 限制，请手动输入"; document.getElementById('confirmAdd').style.display = 'block'; }
+        };
+
+        document.getElementById('confirmAdd').onclick = () => {
+            let t = document.getElementById('mTime').value;
+            let finalTime = dateStr + "T" + t.slice(0,2) + ":" + t.slice(2,4) + ":00";
+            saveFlight(dateStr, smartFlight(document.getElementById('mFno').value), document.getElementById('mDep').value, document.getElementById('mArr').value, finalTime);
+            modal.remove();
+        };
+    }
+
+    function renderCalendar() {
+        let first = new Date(currentYear, currentMonth, 1).getDay();
+        let days = new Date(currentYear, currentMonth + 1, 0).getDate();
+        const grid = document.getElementById('calendarGrid'); grid.innerHTML = '';
+        document.getElementById('currentMonth').innerText = `${currentYear}年 ${currentMonth + 1}月`;
+        let todayStr = new Date().toISOString().split('T')[0];
+
+        for (let i = 0; i < first; i++) grid.appendChild(document.createElement('div'));
+        for (let d = 1; d <= days; d++) {
+            let dStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            let cell = document.createElement('div'); cell.className = 'cal-day'; cell.innerText = d;
+            if (dStr === todayStr) cell.classList.add('today');
+            if (flightsDB[dStr]) cell.classList.add('has-flight');
+            if (selectedDate === dStr) cell.classList.add('selected');
+            cell.onclick = () => { selectedDate = dStr; renderCalendar(); renderDayFlights(); openFlightModal(dStr); };
+            grid.appendChild(cell);
+        }
+    }
+
+    function renderDayFlights() {
+        const box = document.getElementById('dayFlightsList');
+        if (!selectedDate || !flightsDB[selectedDate]) return box.innerHTML = "当天无任务";
+        box.innerHTML = flightsDB[selectedDate].map(f => `
+            <div class="flight-row-item">
+                <b>${f.flightNumber} ${f.origin} ➔ ${f.destination}</b><br>
+                <small>起飞: ${f.departureTime.substring(11,16)}</small>
+                <button onclick="deleteFlight('${selectedDate}', ${f.id})" style="float:right; border:none; background:none; color:#d1242f;">删除</button>
+            </div>
+        `).join('');
+    }
+
+    window.deleteFlight = (date, id) => {
+        flightsDB[date] = flightsDB[date].filter(f => f.id !== id);
+        if (!flightsDB[date].length) delete flightsDB[date];
+        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+        syncToGist(); renderCalendar(); renderDayFlights();
+    };
+
+    document.getElementById('openSettingsBtn').onclick = () => {
+        const modal = document.createElement('div'); modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal">
+                <div style="font-weight:600; margin-bottom:15px;">⚙️ 系统设置</div>
+                <input type="password" id="sToken" placeholder="GitHub Token (6b51...)" value="${GH_TOKEN}">
+                <input type="text" id="sGist" placeholder="Gist ID" value="${GIST_ID}">
+                <div class="style-grid">${Array.from({length:20}).map((_,i)=>`<div class="style-item ${currentStyleIdx==i?'selected':''}" onclick="currentStyleIdx=${i}; syncToGist(); this.closest('.modal-overlay').remove();">S-${i+1}</div>`).join('')}</div>
+                <button class="btn-primary" onclick="localStorage.setItem('gh_token', document.getElementById('sToken').value); localStorage.setItem('gist_id', document.getElementById('sGist').value); location.reload();">保存配置</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    };
+
+    document.getElementById('prevMonthBtn').onclick = () => { currentMonth--; if(currentMonth<0){currentMonth=11;currentYear--;} renderCalendar(); };
+    document.getElementById('nextMonthBtn').onclick = () => { currentMonth++; if(currentMonth>11){currentMonth=0;currentYear++;} renderCalendar(); };
+
+    renderCalendar();
 </script>
 </body>
 </html>
