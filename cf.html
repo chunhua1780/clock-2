@@ -3,71 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>🎨 全元素编辑器</title>
+    <title>Editor - 元素布局</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { background: #0a0e1a; color: #fff; font-family: system-ui; padding: 10px; }
-        .canvas { background: #1a2a4a; border-radius: 40px; position: relative; aspect-ratio: 4/3; overflow: hidden; margin-bottom: 20px; touch-action: none; }
-        .draggable { position: absolute; transform: translate(-50%, -50%); cursor: grab; background: rgba(255,255,255,0.1); border-radius: 8px; padding: 5px; }
-        .clock-text { font-weight: 700; font-size: 40px; }
-        .control-panel { background: #11161f; border-radius: 20px; padding: 15px; }
-        .slider-group { margin-bottom: 10px; }
-        input[type="range"] { width: 100%; }
-        button { width: 100%; padding: 12px; background: #ffaa44; border: none; border-radius: 10px; font-weight: bold; margin-top: 10px; }
-        .mode-bar { display: flex; gap: 10px; margin-bottom: 10px; }
-        .mode-btn { flex: 1; padding: 10px; background: #1a1f2e; text-align: center; border-radius: 10px; }
-        .mode-btn.active { background: #ffaa44; color: #000; }
+        body { background: #0a0e1a; color: #fff; font-family: system-ui; margin: 0; padding: 10px; }
+        .canvas { background: #111; border: 2px solid #333; border-radius: 30px; position: relative; aspect-ratio: 4/3; width: 100%; overflow: hidden; touch-action: none; }
+        .draggable { position: absolute; transform: translate(-50%, -50%); padding: 10px; background: rgba(255,255,255,0.1); border-radius: 8px; cursor: move; }
+        .clock-text { font-size: 40px; font-weight: bold; }
+        .panel { background: #161b22; border-radius: 20px; padding: 20px; margin-top: 15px; }
+        button { width: 100%; padding: 15px; background: #ffaa44; border: none; border-radius: 12px; font-weight: bold; font-size: 16px; }
     </style>
 </head>
 <body>
-    <div class="mode-bar">
-        <div class="mode-btn active" id="btn-single">单屏</div>
-        <div class="mode-btn" id="btn-dual">双屏</div>
-    </div>
-    <div id="canvas" class="canvas">
+    <div class="canvas" id="canvas">
         <div class="draggable" id="drag-clock" style="left:50%; top:40%"><div class="clock-text">12:34</div></div>
-        <div class="draggable" id="drag-date" style="left:50%; top:70%">Monday, 1 Jan</div>
+        <div class="draggable" id="drag-date" style="left:50%; top:65%">Monday, 1 Jan</div>
     </div>
-    <div class="control-panel">
-        <div class="slider-group">大小: <input type="range" id="sizeSlider" min="20" max="200" value="40"></div>
-        <button onclick="saveLayout()">💾 同步布局到云端</button>
+    <div class="panel">
+        <p style="color: #888; font-size: 12px; margin-bottom: 10px;">提示：在 iPad 上直接拖动文字调整位置</p>
+        <button onclick="uploadLayout()">💾 同步布局到 index.html</button>
     </div>
 
-<script>
-    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
-    const GH_TOKEN = localStorage.getItem('gh_token');
-    let selected = null;
+    <script>
+        const GIST_ID = localStorage.getItem('gist_id') || "6b51ae2b894903de0227eaec5e0ce842";
+        const TOKEN = localStorage.getItem('gh_token');
+        let activeEl = null;
 
-    document.querySelectorAll('.draggable').forEach(el => {
-        el.addEventListener('touchstart', (e) => {
-            selected = el;
-            let touch = e.touches[0];
-            el.dataset.startX = touch.clientX - el.offsetLeft;
-            el.dataset.startY = touch.clientY - el.offsetTop;
+        document.querySelectorAll('.draggable').forEach(el => {
+            el.addEventListener('touchstart', e => {
+                activeEl = el;
+                el.dataset.offsetX = e.touches[0].clientX - el.offsetLeft;
+                el.dataset.offsetY = e.touches[0].clientY - el.offsetTop;
+            });
+            el.addEventListener('touchmove', e => {
+                if(!activeEl) return;
+                let x = ((e.touches[0].clientX - activeEl.dataset.offsetX) / canvas.offsetWidth) * 100;
+                let y = ((e.touches[0].clientY - activeEl.dataset.offsetY) / canvas.offsetHeight) * 100;
+                activeEl.style.left = x.toFixed(1) + '%';
+                activeEl.style.top = y.toFixed(1) + '%';
+            });
+            el.addEventListener('touchend', () => activeEl = null);
         });
-        el.addEventListener('touchmove', (e) => {
-            if(!selected) return;
-            let touch = e.touches[0];
-            let x = ((touch.clientX - selected.dataset.startX) / canvas.offsetWidth) * 100;
-            let y = ((touch.clientY - selected.dataset.startY) / canvas.offsetHeight) * 100;
-            selected.style.left = x + '%';
-            selected.style.top = y + '%';
-        });
-    });
 
-    async function saveLayout() {
-        if(!GH_TOKEN) return alert("请先在控制台输入Token");
-        const config = {
-            clock: { left: document.getElementById('drag-clock').style.left, top: document.getElementById('drag-clock').style.top, size: document.getElementById('drag-clock').style.fontSize },
-            date: { left: document.getElementById('drag-date').style.left, top: document.getElementById('drag-date').style.top }
-        };
-        await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `token ${GH_TOKEN}` },
-            body: JSON.stringify({ files: { 'clock_layout.json': { content: JSON.stringify(config) } } })
-        });
-        alert("布局已同步");
-    }
-</script>
+        async function uploadLayout() {
+            if(!TOKEN) return alert("请先在 control.html 页面输入 Token");
+            const config = {
+                clock: { left: document.getElementById('drag-clock').style.left, top: document.getElementById('drag-clock').style.top },
+                date: { left: document.getElementById('drag-date').style.left, top: document.getElementById('drag-date').style.top }
+            };
+            const resp = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+                method: 'PATCH',
+                headers: { 'Authorization': `token ${TOKEN}` },
+                body: JSON.stringify({ files: { 'clock_layout.json': { content: JSON.stringify(config) } } })
+            });
+            if(resp.ok) alert("布局同步成功！");
+        }
+    </script>
 </body>
 </html>
