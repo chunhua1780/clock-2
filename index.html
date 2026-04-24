@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>迪拜飞行时钟 · 智能航班系统</title>
+    <title>迪拜飞行时钟 · 完整版（含NOTAM）</title>
     <style>
         * {
             margin: 0;
@@ -48,9 +48,6 @@
         .auth-status.connected {
             color: #66ffaa;
         }
-        .auth-status.loading {
-            color: #ffaa44;
-        }
         .auth-btn {
             background: #ffaa44;
             border: none;
@@ -59,17 +56,6 @@
             font-weight: bold;
             font-size: 0.8rem;
             cursor: pointer;
-            transition: 0.2s;
-        }
-        .auth-btn:active { transform: scale(0.96); }
-
-        /* 航班号显示 */
-        .flight-badge {
-            background: rgba(0, 0, 0, 0.5);
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-family: monospace;
-            font-size: 0.8rem;
         }
 
         /* 上方 1/4 航班动态区域 */
@@ -111,16 +97,30 @@
             font-weight: 600;
         }
 
-        .flight-status-badge.warning {
-            background: #ff8844;
-        }
-
         .flight-schedule {
             font-size: 0.8rem;
             background: #1a1f2a;
             padding: 10px;
             border-radius: 16px;
             margin: 8px 0;
+        }
+
+        /* NOTAM 警告区域 */
+        .notam-warning {
+            background: rgba(255, 68, 68, 0.15);
+            border-left: 3px solid #ff4444;
+            padding: 8px 12px;
+            border-radius: 12px;
+            margin-top: 8px;
+            font-size: 0.7rem;
+        }
+        .notam-warning.critical {
+            background: rgba(255, 0, 0, 0.25);
+            border-left-color: #ff0000;
+        }
+        .notam-warning.info {
+            background: rgba(68, 136, 255, 0.15);
+            border-left-color: #4488ff;
         }
 
         /* 下方 3/4 左右分屏 */
@@ -224,7 +224,6 @@
             color: #88aacc;
         }
 
-        /* 进度条 */
         .progress-bar-container {
             background: #2a2a3a;
             border-radius: 12px;
@@ -244,42 +243,41 @@
             margin: 10px 0;
         }
         
-        .clickable {
-            cursor: pointer;
+        .notam-list {
+            max-height: 120px;
+            overflow-y: auto;
+            font-size: 0.7rem;
+        }
+        .notam-item {
+            padding: 6px 0;
+            border-bottom: 1px solid #223344;
+            color: #ffaa66;
+        }
+        .loading {
+            color: #88aacc;
+            font-style: italic;
         }
     </style>
-    <!-- 加载 Google API 库 -->
     <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body>
 <div class="clock-container">
-    <!-- 状态栏 -->
     <div class="status-bar">
         <div class="auth-status" id="authStatus">🔐 未连接</div>
-        <div style="display: flex; gap: 10px;">
-            <div class="flight-badge" id="flightBadge">✈️ 等待航班</div>
-            <button class="auth-btn" id="authBtn">连接 Google 日历</button>
-        </div>
+        <button class="auth-btn" id="authBtn">连接 Google 日历</button>
     </div>
 
-    <!-- 上方航班信息 -->
     <div id="flightPanel" class="flight-area">
         <div class="standby-mode">
             <div>📡 连接日历后自动读取航班</div>
-            <div class="flight-meta" style="margin-top: 8px;">日历事件格式示例: "DXB→PVG" 或 "DXB-PVG"</div>
-            <div class="flight-meta">🌍 自动获取两地天气 + 当地时间 + 穿衣建议</div>
+            <div class="flight-meta">🌍 自动获取两地天气 + 当地时间 + NOTAM风险提示</div>
         </div>
     </div>
 
-    <!-- 下方左右分屏 -->
     <div class="bottom-area">
-        <!-- 左边：起飞机场 / 迪拜 -->
         <div id="originPanel" class="city-panel">
             <div class="city-header">
-                <div>
-                    <div class="city-name" id="originCode">DXB</div>
-                    <div class="flight-meta" id="originName">迪拜国际机场</div>
-                </div>
+                <div><div class="city-name" id="originCode">DXB</div><div class="flight-meta" id="originName">迪拜国际机场</div></div>
                 <div class="label-sm">🛫 出发地</div>
             </div>
             <div id="originWeather">
@@ -288,6 +286,10 @@
                 <div class="weather-desc">加载中...</div>
                 <div class="dress-tip">👕 穿衣建议: --</div>
             </div>
+            <div id="originNotam" class="notam-warning info">
+                <div class="label-sm">📡 NOTAM 航行通告</div>
+                <div class="loading">加载中...</div>
+            </div>
             <div class="city-clock">
                 <div class="label-sm">当地时间</div>
                 <div class="clock-time" id="originTime">--:--:--</div>
@@ -295,13 +297,9 @@
             </div>
         </div>
 
-        <!-- 右边：目的地机场 -->
         <div id="destPanel" class="city-panel">
             <div class="city-header">
-                <div>
-                    <div class="city-name" id="destCode">---</div>
-                    <div class="flight-meta" id="destName">目的地机场</div>
-                </div>
+                <div><div class="city-name" id="destCode">---</div><div class="flight-meta" id="destName">目的地机场</div></div>
                 <div class="label-sm">🛬 目的地</div>
             </div>
             <div id="destWeather">
@@ -309,6 +307,10 @@
                 <div class="weather-temp">--°C</div>
                 <div class="weather-desc">等待航班</div>
                 <div class="dress-tip">👕 穿衣建议: --</div>
+            </div>
+            <div id="destNotam" class="notam-warning info">
+                <div class="label-sm">📡 NOTAM 航行通告</div>
+                <div class="loading">等待航班...</div>
             </div>
             <div class="city-clock">
                 <div class="label-sm">当地时间</div>
@@ -321,197 +323,402 @@
 
 <script>
     // ============================================================
-    // 🔑 所有凭证（已全部填入）
+    // 🔑 凭证配置
     // ============================================================
     const GOOGLE_CLIENT_ID = "234906426246-ora010t97cmlg7bcnloe11rijfal45q3.apps.googleusercontent.com";
     const WEATHER_KEY = "9fcc9afb0a80a6aaa44c926e4f7827a7";
     const AVIATIONSTACK_KEY = "b4bd321bbba1723162801cce3c455d7c";
     
     // ============================================================
-    // 机场数据库（IATA → 城市信息）
+    // 📚 全球机场三字码数据库（内置，避免API调用）
+    // 数据来源：整合 ICAO + OurAirports 数据
+    // 包含：机场代码、名称、城市、国家、经纬度、时区
     // ============================================================
-    const airportDB = {
-        "DXB": { name: "迪拜国际机场", city: "迪拜", lat: 25.2532, lon: 55.3657, tz: "Asia/Dubai", country: "阿联酋" },
-        "PVG": { name: "上海浦东机场", city: "上海", lat: 31.1443, lon: 121.8083, tz: "Asia/Shanghai", country: "中国" },
-        "PEK": { name: "北京首都机场", city: "北京", lat: 40.0799, lon: 116.6031, tz: "Asia/Shanghai", country: "中国" },
-        "CAN": { name: "广州白云机场", city: "广州", lat: 23.3924, lon: 113.2988, tz: "Asia/Shanghai", country: "中国" },
-        "LHR": { name: "伦敦希思罗机场", city: "伦敦", lat: 51.4700, lon: -0.4543, tz: "Europe/London", country: "英国" },
-        "JFK": { name: "纽约肯尼迪机场", city: "纽约", lat: 40.6413, lon: -73.7781, tz: "America/New_York", country: "美国" },
-        "LAX": { name: "洛杉矶机场", city: "洛杉矶", lat: 33.9416, lon: -118.4085, tz: "America/Los_Angeles", country: "美国" },
-        "HND": { name: "东京羽田机场", city: "东京", lat: 35.5494, lon: 139.7798, tz: "Asia/Tokyo", country: "日本" },
-        "CDG": { name: "巴黎戴高乐机场", city: "巴黎", lat: 49.0097, lon: 2.5479, tz: "Europe/Paris", country: "法国" },
-        "FRA": { name: "法兰克福机场", city: "法兰克福", lat: 50.0379, lon: 8.5622, tz: "Europe/Berlin", country: "德国" },
-        "AMS": { name: "阿姆斯特丹机场", city: "阿姆斯特丹", lat: 52.3086, lon: 4.7639, tz: "Europe/Amsterdam", country: "荷兰" },
-        "SIN": { name: "新加坡樟宜机场", city: "新加坡", lat: 1.3644, lon: 103.9915, tz: "Asia/Singapore", country: "新加坡" },
-        "ICN": { name: "首尔仁川机场", city: "首尔", lat: 37.4602, lon: 126.4407, tz: "Asia/Seoul", country: "韩国" },
-        "SYD": { name: "悉尼机场", city: "悉尼", lat: -33.9399, lon: 151.1753, tz: "Australia/Sydney", country: "澳大利亚" },
-        "MUC": { name: "慕尼黑机场", city: "慕尼黑", lat: 48.3538, lon: 11.7861, tz: "Europe/Berlin", country: "德国" },
-        "ZRH": { name: "苏黎世机场", city: "苏黎世", lat: 47.4647, lon: 8.5492, tz: "Europe/Zurich", country: "瑞士" },
-        "VIE": { name: "维也纳机场", city: "维也纳", lat: 48.1103, lon: 16.5697, tz: "Europe/Vienna", country: "奥地利" },
-        "BCN": { name: "巴塞罗那机场", city: "巴塞罗那", lat: 41.2974, lon: 2.0783, tz: "Europe/Madrid", country: "西班牙" },
-        "MAD": { name: "马德里机场", city: "马德里", lat: 40.4719, lon: -3.5626, tz: "Europe/Madrid", country: "西班牙" },
-        "FCO": { name: "罗马菲乌米奇诺机场", city: "罗马", lat: 41.8003, lon: 12.2389, tz: "Europe/Rome", country: "意大利" },
-        "CPH": { name: "哥本哈根机场", city: "哥本哈根", lat: 55.6181, lon: 12.6560, tz: "Europe/Copenhagen", country: "丹麦" },
-        "OSL": { name: "奥斯陆机场", city: "奥斯陆", lat: 60.1939, lon: 11.1004, tz: "Europe/Oslo", country: "挪威" },
-        "ARN": { name: "斯德哥尔摩机场", city: "斯德哥尔摩", lat: 59.6519, lon: 17.9186, tz: "Europe/Stockholm", country: "瑞典" },
-        "HEL": { name: "赫尔辛基机场", city: "赫尔辛基", lat: 60.3172, lon: 24.9633, tz: "Europe/Helsinki", country: "芬兰" },
-        "DUB": { name: "都柏林机场", city: "都柏林", lat: 53.4213, lon: -6.2701, tz: "Europe/Dublin", country: "爱尔兰" },
-        "BRU": { name: "布鲁塞尔机场", city: "布鲁塞尔", lat: 50.9014, lon: 4.4844, tz: "Europe/Brussels", country: "比利时" },
-        "LIS": { name: "里斯本机场", city: "里斯本", lat: 38.7742, lon: -9.1342, tz: "Europe/Lisbon", country: "葡萄牙" },
-        "ATH": { name: "雅典机场", city: "雅典", lat: 37.9364, lon: 23.9445, tz: "Europe/Athens", country: "希腊" },
-        "IST": { name: "伊斯坦布尔机场", city: "伊斯坦布尔", lat: 41.2753, lon: 28.7519, tz: "Europe/Istanbul", country: "土耳其" },
-        "CAI": { name: "开罗机场", city: "开罗", lat: 30.1219, lon: 31.4056, tz: "Africa/Cairo", country: "埃及" },
-        "JNB": { name: "约翰内斯堡机场", city: "约翰内斯堡", lat: -26.1392, lon: 28.2460, tz: "Africa/Johannesburg", country: "南非" },
-        "NBO": { name: "内罗毕机场", city: "内罗毕", lat: -1.3192, lon: 36.9278, tz: "Africa/Nairobi", country: "肯尼亚" },
-        "DEL": { name: "德里机场", city: "德里", lat: 28.5562, lon: 77.1000, tz: "Asia/Kolkata", country: "印度" },
-        "BOM": { name: "孟买机场", city: "孟买", lat: 19.0887, lon: 72.8679, tz: "Asia/Kolkata", country: "印度" },
-        "CGK": { name: "雅加达机场", city: "雅加达", lat: -6.1256, lon: 106.6558, tz: "Asia/Jakarta", country: "印度尼西亚" },
-        "KUL": { name: "吉隆坡机场", city: "吉隆坡", lat: 2.7456, lon: 101.7099, tz: "Asia/Kuala_Lumpur", country: "马来西亚" },
-        "BKK": { name: "曼谷机场", city: "曼谷", lat: 13.6811, lon: 100.7470, tz: "Asia/Bangkok", country: "泰国" },
-        "SGN": { name: "胡志明机场", city: "胡志明", lat: 10.8188, lon: 106.6519, tz: "Asia/Ho_Chi_Minh", country: "越南" },
-        "MNL": { name: "马尼拉机场", city: "马尼拉", lat: 14.5086, lon: 121.0194, tz: "Asia/Manila", country: "菲律宾" },
-        "TPE": { name: "台北桃园机场", city: "台北", lat: 25.0778, lon: 121.2238, tz: "Asia/Taipei", country: "台湾" },
-        "HKG": { name: "香港机场", city: "香港", lat: 22.3089, lon: 113.9146, tz: "Asia/Hong_Kong", country: "香港" },
-        "MFM": { name: "澳门机场", city: "澳门", lat: 22.1496, lon: 113.5915, tz: "Asia/Macau", country: "澳门" },
-        "SYD": { name: "悉尼机场", city: "悉尼", lat: -33.9461, lon: 151.1772, tz: "Australia/Sydney", country: "澳大利亚" },
-        "MEL": { name: "墨尔本机场", city: "墨尔本", lat: -37.6733, lon: 144.8433, tz: "Australia/Melbourne", country: "澳大利亚" }
+    const airportDatabase = {
+        // 阿联酋
+        "DXB": { name: "迪拜国际机场", city: "迪拜", country: "阿联酋", lat: 25.2532, lon: 55.3657, tz: "Asia/Dubai", icao: "OMDB" },
+        "AUH": { name: "阿布扎比国际机场", city: "阿布扎比", country: "阿联酋", lat: 24.4330, lon: 54.6511, tz: "Asia/Dubai", icao: "OMAA" },
+        "SHJ": { name: "沙迦国际机场", city: "沙迦", country: "阿联酋", lat: 25.3286, lon: 55.5172, tz: "Asia/Dubai", icao: "OMSJ" },
+        
+        // 中国主要机场
+        "PEK": { name: "北京首都国际机场", city: "北京", country: "中国", lat: 40.0799, lon: 116.6031, tz: "Asia/Shanghai", icao: "ZBAA" },
+        "PKX": { name: "北京大兴国际机场", city: "北京", country: "中国", lat: 39.5095, lon: 116.4105, tz: "Asia/Shanghai", icao: "ZBAD" },
+        "PVG": { name: "上海浦东国际机场", city: "上海", country: "中国", lat: 31.1443, lon: 121.8083, tz: "Asia/Shanghai", icao: "ZSPD" },
+        "SHA": { name: "上海虹桥国际机场", city: "上海", country: "中国", lat: 31.1979, lon: 121.3362, tz: "Asia/Shanghai", icao: "ZSSS" },
+        "CAN": { name: "广州白云国际机场", city: "广州", country: "中国", lat: 23.3924, lon: 113.2988, tz: "Asia/Shanghai", icao: "ZGGG" },
+        "SZX": { name: "深圳宝安国际机场", city: "深圳", country: "中国", lat: 22.6393, lon: 113.8108, tz: "Asia/Shanghai", icao: "ZGSZ" },
+        "CTU": { name: "成都双流国际机场", city: "成都", country: "中国", lat: 30.5785, lon: 103.9470, tz: "Asia/Shanghai", icao: "ZUUU" },
+        "TFU": { name: "成都天府国际机场", city: "成都", country: "中国", lat: 30.3125, lon: 104.4418, tz: "Asia/Shanghai", icao: "ZUTF" },
+        "CKG": { name: "重庆江北国际机场", city: "重庆", country: "中国", lat: 29.7192, lon: 106.6418, tz: "Asia/Shanghai", icao: "ZUCK" },
+        "XIY": { name: "西安咸阳国际机场", city: "西安", country: "中国", lat: 34.4412, lon: 108.7516, tz: "Asia/Shanghai", icao: "ZLXY" },
+        "CSX": { name: "长沙黄花国际机场", city: "长沙", country: "中国", lat: 28.1892, lon: 113.2196, tz: "Asia/Shanghai", icao: "ZGHA" },
+        "WUH": { name: "武汉天河国际机场", city: "武汉", country: "中国", lat: 30.7838, lon: 114.2081, tz: "Asia/Shanghai", icao: "ZHHH" },
+        "NKG": { name: "南京禄口国际机场", city: "南京", country: "中国", lat: 31.7420, lon: 118.8620, tz: "Asia/Shanghai", icao: "ZSNJ" },
+        "HGH": { name: "杭州萧山国际机场", city: "杭州", country: "中国", lat: 30.2295, lon: 120.4344, tz: "Asia/Shanghai", icao: "ZSHC" },
+        "XMN": { name: "厦门高崎国际机场", city: "厦门", country: "中国", lat: 24.5440, lon: 118.1277, tz: "Asia/Shanghai", icao: "ZSAM" },
+        "FOC": { name: "福州长乐国际机场", city: "福州", country: "中国", lat: 25.9351, lon: 119.6633, tz: "Asia/Shanghai", icao: "ZSFZ" },
+        "KWL": { name: "桂林两江国际机场", city: "桂林", country: "中国", lat: 25.2181, lon: 110.0391, tz: "Asia/Shanghai", icao: "ZGKL" },
+        "KMG": { name: "昆明长水国际机场", city: "昆明", country: "中国", lat: 25.1019, lon: 102.9292, tz: "Asia/Shanghai", icao: "ZPPP" },
+        "HRB": { name: "哈尔滨太平国际机场", city: "哈尔滨", country: "中国", lat: 45.6234, lon: 126.2503, tz: "Asia/Shanghai", icao: "ZYHB" },
+        "SHE": { name: "沈阳桃仙国际机场", city: "沈阳", country: "中国", lat: 41.6398, lon: 123.4834, tz: "Asia/Shanghai", icao: "ZYTX" },
+        "DLC": { name: "大连周水子国际机场", city: "大连", country: "中国", lat: 38.9657, lon: 121.5386, tz: "Asia/Shanghai", icao: "ZYTL" },
+        "TNA": { name: "济南遥墙国际机场", city: "济南", country: "中国", lat: 36.8572, lon: 117.2160, tz: "Asia/Shanghai", icao: "ZSJN" },
+        "TAO": { name: "青岛胶东国际机场", city: "青岛", country: "中国", lat: 36.3619, lon: 120.0855, tz: "Asia/Shanghai", icao: "ZSQD" },
+        "NGB": { name: "宁波栎社国际机场", city: "宁波", country: "中国", lat: 29.8267, lon: 121.4619, tz: "Asia/Shanghai", icao: "ZSNB" },
+        "WNZ": { name: "温州龙湾国际机场", city: "温州", country: "中国", lat: 27.9122, lon: 120.8522, tz: "Asia/Shanghai", icao: "ZSWZ" },
+        "KHN": { name: "南昌昌北国际机场", city: "南昌", country: "中国", lat: 28.8650, lon: 115.9000, tz: "Asia/Shanghai", icao: "ZSCN" },
+        "HFE": { name: "合肥新桥国际机场", city: "合肥", country: "中国", lat: 31.7800, lon: 116.9800, tz: "Asia/Shanghai", icao: "ZSOF" },
+        "CGO": { name: "郑州新郑国际机场", city: "郑州", country: "中国", lat: 34.5197, lon: 113.8408, tz: "Asia/Shanghai", icao: "ZHCC" },
+        "TYN": { name: "太原武宿国际机场", city: "太原", country: "中国", lat: 37.7469, lon: 112.6284, tz: "Asia/Shanghai", icao: "ZBYN" },
+        "SJW": { name: "石家庄正定国际机场", city: "石家庄", country: "中国", lat: 38.2807, lon: 114.6973, tz: "Asia/Shanghai", icao: "ZBSJ" },
+        "LHW": { name: "兰州中川国际机场", city: "兰州", country: "中国", lat: 36.5152, lon: 103.6204, tz: "Asia/Shanghai", icao: "ZLLL" },
+        "INC": { name: "银川河东国际机场", city: "银川", country: "中国", lat: 38.3225, lon: 106.3922, tz: "Asia/Shanghai", icao: "ZLIC" },
+        "XNN": { name: "西宁曹家堡国际机场", city: "西宁", country: "中国", lat: 36.5275, lon: 102.0425, tz: "Asia/Shanghai", icao: "ZLXN" },
+        "URC": { name: "乌鲁木齐地窝堡国际机场", city: "乌鲁木齐", country: "中国", lat: 43.9062, lon: 87.4741, tz: "Asia/Shanghai", icao: "ZWWW" },
+        "LXA": { name: "拉萨贡嘎国际机场", city: "拉萨", country: "中国", lat: 29.2975, lon: 90.9119, tz: "Asia/Shanghai", icao: "ZULS" },
+        "HKG": { name: "香港国际机场", city: "香港", country: "香港", lat: 22.3089, lon: 113.9146, tz: "Asia/Hong_Kong", icao: "VHHH" },
+        "MFM": { name: "澳门国际机场", city: "澳门", country: "澳门", lat: 22.1496, lon: 113.5915, tz: "Asia/Macau", icao: "VMMC" },
+        "TPE": { name: "台北桃园国际机场", city: "台北", country: "台湾", lat: 25.0778, lon: 121.2238, tz: "Asia/Taipei", icao: "RCTP" },
+        "KHH": { name: "高雄国际机场", city: "高雄", country: "台湾", lat: 22.5769, lon: 120.3497, tz: "Asia/Taipei", icao: "RCKH" },
+        
+        // 亚洲其他主要机场
+        "NRT": { name: "成田国际机场", city: "东京", country: "日本", lat: 35.7719, lon: 140.3929, tz: "Asia/Tokyo", icao: "RJAA" },
+        "HND": { name: "羽田机场", city: "东京", country: "日本", lat: 35.5494, lon: 139.7798, tz: "Asia/Tokyo", icao: "RJTT" },
+        "KIX": { name: "关西国际机场", city: "大阪", country: "日本", lat: 34.4342, lon: 135.2431, tz: "Asia/Tokyo", icao: "RJBB" },
+        "NGO": { name: "中部国际机场", city: "名古屋", country: "日本", lat: 34.8549, lon: 136.8060, tz: "Asia/Tokyo", icao: "RJGG" },
+        "CTS": { name: "新千岁机场", city: "札幌", country: "日本", lat: 42.7752, lon: 141.6927, tz: "Asia/Tokyo", icao: "RJCC" },
+        "ICN": { name: "仁川国际机场", city: "首尔", country: "韩国", lat: 37.4602, lon: 126.4407, tz: "Asia/Seoul", icao: "RKSI" },
+        "GMP": { name: "金浦国际机场", city: "首尔", country: "韩国", lat: 37.5583, lon: 126.7906, tz: "Asia/Seoul", icao: "RKSS" },
+        "PUS": { name: "金海国际机场", city: "釜山", country: "韩国", lat: 35.1796, lon: 128.9482, tz: "Asia/Seoul", icao: "RKPK" },
+        "SIN": { name: "樟宜机场", city: "新加坡", country: "新加坡", lat: 1.3644, lon: 103.9915, tz: "Asia/Singapore", icao: "WSSS" },
+        "KUL": { name: "吉隆坡国际机场", city: "吉隆坡", country: "马来西亚", lat: 2.7456, lon: 101.7099, tz: "Asia/Kuala_Lumpur", icao: "WMKK" },
+        "BKK": { name: "素万那普机场", city: "曼谷", country: "泰国", lat: 13.6811, lon: 100.7470, tz: "Asia/Bangkok", icao: "VTBS" },
+        "DMK": { name: "廊曼国际机场", city: "曼谷", country: "泰国", lat: 13.9126, lon: 100.6068, tz: "Asia/Bangkok", icao: "VTBD" },
+        "HKT": { name: "普吉国际机场", city: "普吉", country: "泰国", lat: 8.1132, lon: 98.3168, tz: "Asia/Bangkok", icao: "VTSP" },
+        "CGK": { name: "苏加诺-哈达机场", city: "雅加达", country: "印度尼西亚", lat: -6.1256, lon: 106.6558, tz: "Asia/Jakarta", icao: "WIII" },
+        "DPS": { name: "伍拉·赖机场", city: "巴厘岛", country: "印度尼西亚", lat: -8.7484, lon: 115.1668, tz: "Asia/Makassar", icao: "WADD" },
+        "MNL": { name: "尼诺伊·阿基诺机场", city: "马尼拉", country: "菲律宾", lat: 14.5086, lon: 121.0194, tz: "Asia/Manila", icao: "RPLL" },
+        "SGN": { name: "新山一国际机场", city: "胡志明市", country: "越南", lat: 10.8188, lon: 106.6519, tz: "Asia/Ho_Chi_Minh", icao: "VVTS" },
+        "HAN": { name: "内排国际机场", city: "河内", country: "越南", lat: 21.2212, lon: 105.8071, tz: "Asia/Bangkok", icao: "VVNB" },
+        "RGN": { name: "仰光国际机场", city: "仰光", country: "缅甸", lat: 16.9073, lon: 96.1330, tz: "Asia/Yangon", icao: "VYYY" },
+        "PNH": { name: "金边国际机场", city: "金边", country: "柬埔寨", lat: 11.5466, lon: 104.8442, tz: "Asia/Phnom_Penh", icao: "VDPP" },
+        "REP": { name: "暹粒国际机场", city: "暹粒", country: "柬埔寨", lat: 13.4107, lon: 103.8130, tz: "Asia/Phnom_Penh", icao: "VDSR" },
+        "VTE": { name: "瓦岱国际机场", city: "万象", country: "老挝", lat: 17.9883, lon: 102.5633, tz: "Asia/Vientiane", icao: "VLVT" },
+        "DEL": { name: "英迪拉·甘地机场", city: "德里", country: "印度", lat: 28.5562, lon: 77.1000, tz: "Asia/Kolkata", icao: "VIDP" },
+        "BOM": { name: "贾特拉帕蒂·希瓦吉机场", city: "孟买", country: "印度", lat: 19.0887, lon: 72.8679, tz: "Asia/Kolkata", icao: "VABB" },
+        "BLR": { name: "班加罗尔国际机场", city: "班加罗尔", country: "印度", lat: 13.1986, lon: 77.7066, tz: "Asia/Kolkata", icao: "VOBL" },
+        "MAA": { name: "金奈国际机场", city: "金奈", country: "印度", lat: 12.9941, lon: 80.1805, tz: "Asia/Kolkata", icao: "VOMM" },
+        "CCU": { name: "内塔吉·苏巴斯机场", city: "加尔各答", country: "印度", lat: 22.6547, lon: 88.4467, tz: "Asia/Kolkata", icao: "VECC" },
+        "KHI": { name: "真纳国际机场", city: "卡拉奇", country: "巴基斯坦", lat: 24.9065, lon: 67.1608, tz: "Asia/Karachi", icao: "OPKC" },
+        "LHE": { name: "阿拉马·伊克巴勒机场", city: "拉合尔", country: "巴基斯坦", lat: 31.5216, lon: 74.4036, tz: "Asia/Karachi", icao: "OPLA" },
+        "DAC": { name: "沙阿贾拉勒机场", city: "达卡", country: "孟加拉国", lat: 23.8433, lon: 90.3978, tz: "Asia/Dhaka", icao: "VGHS" },
+        "CMB": { name: "班达拉奈克机场", city: "科伦坡", country: "斯里兰卡", lat: 7.1808, lon: 79.8837, tz: "Asia/Colombo", icao: "VCBI" },
+        "MLE": { name: "易卜拉欣·纳西尔机场", city: "马累", country: "马尔代夫", lat: 4.1928, lon: 73.5296, tz: "Indian/Maldives", icao: "VRMM" },
+        "KTM": { name: "特里布万机场", city: "加德满都", country: "尼泊尔", lat: 27.6966, lon: 85.3591, tz: "Asia/Kathmandu", icao: "VNKT" },
+        
+        // 中东
+        "RUH": { name: "哈立德国王机场", city: "利雅得", country: "沙特阿拉伯", lat: 24.9576, lon: 46.6988, tz: "Asia/Riyadh", icao: "OERK" },
+        "JED": { name: "阿卜杜勒-阿齐兹国王机场", city: "吉达", country: "沙特阿拉伯", lat: 21.6796, lon: 39.1565, tz: "Asia/Riyadh", icao: "OEJN" },
+        "DMM": { name: "法赫德国王机场", city: "达曼", country: "沙特阿拉伯", lat: 26.4712, lon: 49.7978, tz: "Asia/Riyadh", icao: "OEDF" },
+        "MED": { name: "穆罕默德·本·阿卜杜勒阿齐兹机场", city: "麦地那", country: "沙特阿拉伯", lat: 24.5534, lon: 39.7051, tz: "Asia/Riyadh", icao: "OEMA" },
+        "DOH": { name: "哈马德国际机场", city: "多哈", country: "卡塔尔", lat: 25.2731, lon: 51.6081, tz: "Asia/Qatar", icao: "OTHH" },
+        "BAH": { name: "巴林国际机场", city: "麦纳麦", country: "巴林", lat: 26.2708, lon: 50.6336, tz: "Asia/Bahrain", icao: "OBBI" },
+        "MCT": { name: "马斯喀特国际机场", city: "马斯喀特", country: "阿曼", lat: 23.5933, lon: 58.2844, tz: "Asia/Muscat", icao: "OOMS" },
+        "SLL": { name: "塞拉莱机场", city: "塞拉莱", country: "阿曼", lat: 17.0387, lon: 54.0913, tz: "Asia/Muscat", icao: "OOSA" },
+        "KWI": { name: "科威特国际机场", city: "科威特城", country: "科威特", lat: 29.2266, lon: 47.9689, tz: "Asia/Kuwait", icao: "OKKK" },
+        "BEY": { name: "贝鲁特-拉菲克·哈里里机场", city: "贝鲁特", country: "黎巴嫩", lat: 33.8209, lon: 35.4884, tz: "Asia/Beirut", icao: "OLBA" },
+        "AMM": { name: "阿勒娅王后机场", city: "安曼", country: "约旦", lat: 31.7226, lon: 35.9932, tz: "Asia/Amman", icao: "OJAI" },
+        "TLV": { name: "本-古里安机场", city: "特拉维夫", country: "以色列", lat: 32.0114, lon: 34.8867, tz: "Asia/Jerusalem", icao: "LLBG" },
+        "IKA": { name: "伊玛目霍梅尼机场", city: "德黑兰", country: "伊朗", lat: 35.4161, lon: 51.1522, tz: "Asia/Tehran", icao: "OIIE" },
+        
+        // 欧洲
+        "LHR": { name: "伦敦希思罗机场", city: "伦敦", country: "英国", lat: 51.4700, lon: -0.4543, tz: "Europe/London", icao: "EGLL" },
+        "LGW": { name: "伦敦盖特威克机场", city: "伦敦", country: "英国", lat: 51.1483, lon: -0.1903, tz: "Europe/London", icao: "EGKK" },
+        "STN": { name: "伦敦斯坦斯特德机场", city: "伦敦", country: "英国", lat: 51.8850, lon: 0.2350, tz: "Europe/London", icao: "EGSS" },
+        "LTN": { name: "伦敦卢顿机场", city: "伦敦", country: "英国", lat: 51.8747, lon: -0.3683, tz: "Europe/London", icao: "EGGW" },
+        "LCY": { name: "伦敦城市机场", city: "伦敦", country: "英国", lat: 51.5053, lon: 0.0553, tz: "Europe/London", icao: "EGLC" },
+        "MAN": { name: "曼彻斯特机场", city: "曼彻斯特", country: "英国", lat: 53.3537, lon: -2.2750, tz: "Europe/London", icao: "EGCC" },
+        "BHX": { name: "伯明翰机场", city: "伯明翰", country: "英国", lat: 52.4539, lon: -1.7480, tz: "Europe/London", icao: "EGBB" },
+        "GLA": { name: "格拉斯哥机场", city: "格拉斯哥", country: "英国", lat: 55.8719, lon: -4.4330, tz: "Europe/London", icao: "EGPF" },
+        "EDI": { name: "爱丁堡机场", city: "爱丁堡", country: "英国", lat: 55.9500, lon: -3.3725, tz: "Europe/London", icao: "EGPH" },
+        "BRS": { name: "布里斯托尔机场", city: "布里斯托尔", country: "英国", lat: 51.3827, lon: -2.7191, tz: "Europe/London", icao: "EGGD" },
+        "CDG": { name: "戴高乐机场", city: "巴黎", country: "法国", lat: 49.0097, lon: 2.5479, tz: "Europe/Paris", icao: "LFPG" },
+        "ORY": { name: "奥利机场", city: "巴黎", country: "法国", lat: 48.7233, lon: 2.3794, tz: "Europe/Paris", icao: "LFPO" },
+        "NCE": { name: "尼斯蓝色海岸机场", city: "尼斯", country: "法国", lat: 43.6584, lon: 7.2159, tz: "Europe/Paris", icao: "LFMN" },
+        "MRS": { name: "马赛普罗旺斯机场", city: "马赛", country: "法国", lat: 43.4393, lon: 5.2214, tz: "Europe/Paris", icao: "LFML" },
+        "LYS": { name: "里昂圣埃克絮佩里机场", city: "里昂", country: "法国", lat: 45.7264, lon: 5.0908, tz: "Europe/Paris", icao: "LFLL" },
+        "TLS": { name: "图卢兹-布拉尼亚克机场", city: "图卢兹", country: "法国", lat: 43.6291, lon: 1.3638, tz: "Europe/Paris", icao: "LFBO" },
+        "BOD": { name: "波尔多-梅里尼亚克机场", city: "波尔多", country: "法国", lat: 44.8283, lon: -0.7156, tz: "Europe/Paris", icao: "LFBD" },
+        "FRA": { name: "法兰克福机场", city: "法兰克福", country: "德国", lat: 50.0379, lon: 8.5622, tz: "Europe/Berlin", icao: "EDDF" },
+        "MUC": { name: "慕尼黑机场", city: "慕尼黑", country: "德国", lat: 48.3538, lon: 11.7861, tz: "Europe/Berlin", icao: "EDDM" },
+        "BER": { name: "柏林勃兰登堡机场", city: "柏林", country: "德国", lat: 52.3667, lon: 13.5033, tz: "Europe/Berlin", icao: "EDDB" },
+        "HAM": { name: "汉堡机场", city: "汉堡", country: "德国", lat: 53.6304, lon: 9.9882, tz: "Europe/Berlin", icao: "EDDH" },
+        "CGN": { name: "科隆波恩机场", city: "科隆", country: "德国", lat: 50.8659, lon: 7.1427, tz: "Europe/Berlin", icao: "EDDK" },
+        "DUS": { name: "杜塞尔多夫机场", city: "杜塞尔多夫", country: "德国", lat: 51.2895, lon: 6.7668, tz: "Europe/Berlin", icao: "EDDL" },
+        "STR": { name: "斯图加特机场", city: "斯图加特", country: "德国", lat: 48.6899, lon: 9.2220, tz: "Europe/Berlin", icao: "EDDS" },
+        "AMS": { name: "史基浦机场", city: "阿姆斯特丹", country: "荷兰", lat: 52.3086, lon: 4.7639, tz: "Europe/Amsterdam", icao: "EHAM" },
+        "BRU": { name: "布鲁塞尔机场", city: "布鲁塞尔", country: "比利时", lat: 50.9014, lon: 4.4844, tz: "Europe/Brussels", icao: "EBBR" },
+        "ZRH": { name: "苏黎世机场", city: "苏黎世", country: "瑞士", lat: 47.4647, lon: 8.5492, tz: "Europe/Zurich", icao: "LSZH" },
+        "GVA": { name: "日内瓦机场", city: "日内瓦", country: "瑞士", lat: 46.2381, lon: 6.1094, tz: "Europe/Zurich", icao: "LSGG" },
+        "VIE": { name: "维也纳国际机场", city: "维也纳", country: "奥地利", lat: 48.1103, lon: 16.5697, tz: "Europe/Vienna", icao: "LOWW" },
+        "PRG": { name: "瓦茨拉夫·哈维尔机场", city: "布拉格", country: "捷克", lat: 50.1008, lon: 14.2600, tz: "Europe/Prague", icao: "LKPR" },
+        "WAW": { name: "华沙肖邦机场", city: "华沙", country: "波兰", lat: 52.1657, lon: 20.9671, tz: "Europe/Warsaw", icao: "EPWA" },
+        "KRK": { name: "克拉科夫机场", city: "克拉科夫", country: "波兰", lat: 50.0778, lon: 19.7847, tz: "Europe/Warsaw", icao: "EPKK" },
+        "BUD": { name: "布达佩斯李斯特·费伦茨机场", city: "布达佩斯", country: "匈牙利", lat: 47.4369, lon: 19.2556, tz: "Europe/Budapest", icao: "LHBP" },
+        "BCN": { name: "巴塞罗那机场", city: "巴塞罗那", country: "西班牙", lat: 41.2974, lon: 2.0783, tz: "Europe/Madrid", icao: "LEBL" },
+        "MAD": { name: "阿道弗·苏亚雷斯机场", city: "马德里", country: "西班牙", lat: 40.4719, lon: -3.5626, tz: "Europe/Madrid", icao: "LEMD" },
+        "AGP": { name: "马拉加机场", city: "马拉加", country: "西班牙", lat: 36.6749, lon: -4.4991, tz: "Europe/Madrid", icao: "LEMG" },
+        "PMI": { name: "马略卡岛帕尔马机场", city: "帕尔马", country: "西班牙", lat: 39.5536, lon: 2.7278, tz: "Europe/Madrid", icao: "LEPA" },
+        "LIS": { name: "里斯本机场", city: "里斯本", country: "葡萄牙", lat: 38.7742, lon: -9.1342, tz: "Europe/Lisbon", icao: "LPPT" },
+        "OPO": { name: "波尔图机场", city: "波尔图", country: "葡萄牙", lat: 41.2355, lon: -8.6781, tz: "Europe/Lisbon", icao: "LPPR" },
+        "FAO": { name: "法鲁机场", city: "法鲁", country: "葡萄牙", lat: 37.0144, lon: -7.9659, tz: "Europe/Lisbon", icao: "LPFR" },
+        "FCO": { name: "菲乌米奇诺机场", city: "罗马", country: "意大利", lat: 41.8003, lon: 12.2389, tz: "Europe/Rome", icao: "LIRF" },
+        "MXP": { name: "马尔彭萨机场", city: "米兰", country: "意大利", lat: 45.6306, lon: 8.7281, tz: "Europe/Rome", icao: "LIMC" },
+        "VCE": { name: "马可·波罗机场", city: "威尼斯", country: "意大利", lat: 45.5048, lon: 12.3517, tz: "Europe/Rome", icao: "LIPZ" },
+        "NAP": { name: "那不勒斯机场", city: "那不勒斯", country: "意大利", lat: 40.8860, lon: 14.2908, tz: "Europe/Rome", icao: "LIRN" },
+        "ATH": { name: "雅典国际机场", city: "雅典", country: "希腊", lat: 37.9364, lon: 23.9445, tz: "Europe/Athens", icao: "LGAV" },
+        "SKG": { name: "塞萨洛尼基机场", city: "塞萨洛尼基", country: "希腊", lat: 40.5197, lon: 22.9709, tz: "Europe/Athens", icao: "LGTS" },
+        "IST": { name: "伊斯坦布尔机场", city: "伊斯坦布尔", country: "土耳其", lat: 41.2753, lon: 28.7519, tz: "Europe/Istanbul", icao: "LTFM" },
+        "SAW": { name: "萨比哈·格克琴机场", city: "伊斯坦布尔", country: "土耳其", lat: 40.8986, lon: 29.3092, tz: "Europe/Istanbul", icao: "LTFJ" },
+        "ESB": { name: "埃森博阿机场", city: "安卡拉", country: "土耳其", lat: 40.1281, lon: 32.9951, tz: "Europe/Istanbul", icao: "LTAC" },
+        "AYT": { name: "安塔利亚机场", city: "安塔利亚", country: "土耳其", lat: 36.8987, lon: 30.8005, tz: "Europe/Istanbul", icao: "LTAI" },
+        "HEL": { name: "赫尔辛基-万塔机场", city: "赫尔辛基", country: "芬兰", lat: 60.3172, lon: 24.9633, tz: "Europe/Helsinki", icao: "EFHK" },
+        "OSL": { name: "奥斯陆加勒穆恩机场", city: "奥斯陆", country: "挪威", lat: 60.1939, lon: 11.1004, tz: "Europe/Oslo", icao: "ENGM" },
+        "BGO": { name: "卑尔根机场", city: "卑尔根", country: "挪威", lat: 60.2934, lon: 5.2181, tz: "Europe/Oslo", icao: "ENBR" },
+        "CPH": { name: "哥本哈根凯斯楚普机场", city: "哥本哈根", country: "丹麦", lat: 55.6181, lon: 12.6560, tz: "Europe/Copenhagen", icao: "EKCH" },
+        "ARN": { name: "斯德哥尔摩阿兰达机场", city: "斯德哥尔摩", country: "瑞典", lat: 59.6519, lon: 17.9186, tz: "Europe/Stockholm", icao: "ESSA" },
+        "GOT": { name: "哥德堡兰德维特机场", city: "哥德堡", country: "瑞典", lat: 57.6628, lon: 12.2798, tz: "Europe/Stockholm", icao: "ESGG" },
+        "DUB": { name: "都柏林机场", city: "都柏林", country: "爱尔兰", lat: 53.4213, lon: -6.2701, tz: "Europe/Dublin", icao: "EIDW" },
+        
+        // 美洲
+        "JFK": { name: "约翰·肯尼迪机场", city: "纽约", country: "美国", lat: 40.6413, lon: -73.7781, tz: "America/New_York", icao: "KJFK" },
+        "EWR": { name: "纽瓦克自由机场", city: "纽瓦克", country: "美国", lat: 40.6925, lon: -74.1687, tz: "America/New_York", icao: "KEWR" },
+        "LGA": { name: "拉瓜迪亚机场", city: "纽约", country: "美国", lat: 40.7772, lon: -73.8726, tz: "America/New_York", icao: "KLGA" },
+        "LAX": { name: "洛杉矶国际机场", city: "洛杉矶", country: "美国", lat: 33.9416, lon: -118.4085, tz: "America/Los_Angeles", icao: "KLAX" },
+        "SFO": { name: "旧金山国际机场", city: "旧金山", country: "美国", lat: 37.6213, lon: -122.3790, tz: "America/Los_Angeles", icao: "KSFO" },
+        "ORD": { name: "奥黑尔国际机场", city: "芝加哥", country: "美国", lat: 41.9742, lon: -87.9073, tz: "America/Chicago", icao: "KORD" },
+        "MDW": { name: "中途国际机场", city: "芝加哥", country: "美国", lat: 41.7858, lon: -87.7524, tz: "America/Chicago", icao: "KMDW" },
+        "DFW": { name: "达拉斯-沃斯堡机场", city: "达拉斯", country: "美国", lat: 32.8998, lon: -97.0403, tz: "America/Chicago", icao: "KDFW" },
+        "IAH": { name: "乔治·布什洲际机场", city: "休斯顿", country: "美国", lat: 29.9844, lon: -95.3414, tz: "America/Chicago", icao: "KIAH" },
+        "DEN": { name: "丹佛国际机场", city: "丹佛", country: "美国", lat: 39.8561, lon: -104.6737, tz: "America/Denver", icao: "KDEN" },
+        "PHX": { name: "菲尼克斯天港机场", city: "菲尼克斯", country: "美国", lat: 33.4343, lon: -112.0116, tz: "America/Phoenix", icao: "KPHX" },
+        "LAS": { name: "麦卡伦国际机场", city: "拉斯维加斯", country: "美国", lat: 36.0840, lon: -115.1536, tz: "America/Los_Angeles", icao: "KLAS" },
+        "SEA": { name: "西雅图-塔科马机场", city: "西雅图", country: "美国", lat: 47.4490, lon: -122.3093, tz: "America/Los_Angeles", icao: "KSEA" },
+        "MIA": { name: "迈阿密国际机场", city: "迈阿密", country: "美国", lat: 25.7932, lon: -80.2906, tz: "America/New_York", icao: "KMIA" },
+        "MCO": { name: "奥兰多国际机场", city: "奥兰多", country: "美国", lat: 28.4294, lon: -81.3089, tz: "America/New_York", icao: "KMCO" },
+        "ATL": { name: "哈茨菲尔德-杰克逊机场", city: "亚特兰大", country: "美国", lat: 33.6367, lon: -84.4281, tz: "America/New_York", icao: "KATL" },
+        "BOS": { name: "洛根国际机场", city: "波士顿", country: "美国", lat: 42.3643, lon: -71.0052, tz: "America/New_York", icao: "KBOS" },
+        "CLT": { name: "夏洛特道格拉斯机场", city: "夏洛特", country: "美国", lat: 35.2141, lon: -80.9431, tz: "America/New_York", icao: "KCLT" },
+        "PHL": { name: "费城国际机场", city: "费城", country: "美国", lat: 39.8719, lon: -75.2411, tz: "America/New_York", icao: "KPHL" },
+        "IAD": { name: "华盛顿杜勒斯机场", city: "华盛顿", country: "美国", lat: 38.9445, lon: -77.4558, tz: "America/New_York", icao: "KIAD" },
+        "DCA": { name: "罗纳德·里根机场", city: "华盛顿", country: "美国", lat: 38.8521, lon: -77.0377, tz: "America/New_York", icao: "KDCA" },
+        "BWI": { name: "巴尔的摩华盛顿机场", city: "巴尔的摩", country: "美国", lat: 39.1754, lon: -76.6684, tz: "America/New_York", icao: "KBWI" },
+        "MSP": { name: "明尼阿波利斯-圣保罗机场", city: "明尼阿波利斯", country: "美国", lat: 44.8820, lon: -93.2218, tz: "America/Chicago", icao: "KMSP" },
+        "DTW": { name: "底特律大都会机场", city: "底特律", country: "美国", lat: 42.2124, lon: -83.3534, tz: "America/Detroit", icao: "KDTW" },
+        "STL": { name: "兰伯特-圣路易斯机场", city: "圣路易斯", country: "美国", lat: 38.7487, lon: -90.3700, tz: "America/Chicago", icao: "KSTL" },
+        "MCI": { name: "堪萨斯城机场", city: "堪萨斯城", country: "美国", lat: 39.2976, lon: -94.7139, tz: "America/Chicago", icao: "KMCI" },
+        "IND": { name: "印第安纳波利斯机场", city: "印第安纳波利斯", country: "美国", lat: 39.7173, lon: -86.2944, tz: "America/Indiana/Indianapolis", icao: "KIND" },
+        "CMH": { name: "哥伦布港机场", city: "哥伦布", country: "美国", lat: 39.9980, lon: -82.8919, tz: "America/New_York", icao: "KCMH" },
+        "CLE": { name: "克利夫兰霍普金斯机场", city: "克利夫兰", country: "美国", lat: 41.4100, lon: -81.8497, tz: "America/New_York", icao: "KCLE" },
+        "PIT": { name: "匹兹堡国际机场", city: "匹兹堡", country: "美国", lat: 40.4959, lon: -80.2567, tz: "America/New_York", icao: "KPIT" },
+        "CVG": { name: "辛辛那提/北肯塔基机场", city: "辛辛那提", country: "美国", lat: 39.0488, lon: -84.6678, tz: "America/New_York", icao: "KCVG" },
+        "YVR": { name: "温哥华国际机场", city: "温哥华", country: "加拿大", lat: 49.1947, lon: -123.1792, tz: "America/Vancouver", icao: "CYVR" },
+        "YYZ": { name: "多伦多皮尔逊机场", city: "多伦多", country: "加拿大", lat: 43.6777, lon: -79.6248, tz: "America/Toronto", icao: "CYYZ" },
+        "YUL": { name: "蒙特利尔特鲁多机场", city: "蒙特利尔", country: "加拿大", lat: 45.4577, lon: -73.7495, tz: "America/Toronto", icao: "CYUL" },
+        "YEG": { name: "埃德蒙顿机场", city: "埃德蒙顿", country: "加拿大", lat: 53.3097, lon: -113.5796, tz: "America/Edmonton", icao: "CYEG" },
+        "YYC": { name: "卡尔加里机场", city: "卡尔加里", country: "加拿大", lat: 51.1314, lon: -114.0123, tz: "America/Edmonton", icao: "CYYC" },
+        "YWG": { name: "温尼伯机场", city: "温尼伯", country: "加拿大", lat: 49.9099, lon: -97.2399, tz: "America/Winnipeg", icao: "CYWG" },
+        "YOW": { name: "渥太华麦克唐纳-卡蒂埃机场", city: "渥太华", country: "加拿大", lat: 45.3208, lon: -75.6686, tz: "America/Toronto", icao: "CYOW" },
+        "YHZ": { name: "哈利法克斯斯坦菲尔德机场", city: "哈利法克斯", country: "加拿大", lat: 44.8808, lon: -63.5086, tz: "America/Halifax", icao: "CYHZ" },
+        "MEX": { name: "墨西哥城国际机场", city: "墨西哥城", country: "墨西哥", lat: 19.4363, lon: -99.0721, tz: "America/Mexico_City", icao: "MMMX" },
+        "CUN": { name: "坎昆国际机场", city: "坎昆", country: "墨西哥", lat: 21.0365, lon: -86.8771, tz: "America/Cancun", icao: "MMUN" },
+        "GDL": { name: "瓜达拉哈拉机场", city: "瓜达拉哈拉", country: "墨西哥", lat: 20.5218, lon: -103.3112, tz: "America/Mexico_City", icao: "MMGL" },
+        "MTY": { name: "蒙特雷机场", city: "蒙特雷", country: "墨西哥", lat: 25.7785, lon: -100.1064, tz: "America/Monterrey", icao: "MMMY" },
+        "GRU": { name: "圣保罗/瓜鲁柳斯机场", city: "圣保罗", country: "巴西", lat: -23.4356, lon: -46.4731, tz: "America/Sao_Paulo", icao: "SBGR" },
+        "GIG": { name: "里约热内卢/加利昂机场", city: "里约热内卢", country: "巴西", lat: -22.8089, lon: -43.2436, tz: "America/Sao_Paulo", icao: "SBGL" },
+        "BSB": { name: "巴西利亚机场", city: "巴西利亚", country: "巴西", lat: -15.8692, lon: -47.9208, tz: "America/Sao_Paulo", icao: "SBBR" },
+        "CNF": { name: "贝洛奥里藏特机场", city: "贝洛奥里藏特", country: "巴西", lat: -19.6337, lon: -43.9689, tz: "America/Sao_Paulo", icao: "SBCF" },
+        "POA": { name: "阿雷格里港机场", city: "阿雷格里港", country: "巴西", lat: -29.9944, lon: -51.1714, tz: "America/Sao_Paulo", icao: "SBPA" },
+        "EZE": { name: "埃塞萨皮斯塔里尼部长机场", city: "布宜诺斯艾利斯", country: "阿根廷", lat: -34.8222, lon: -58.5358, tz: "America/Argentina/Buenos_Aires", icao: "SAEZ" },
+        "SCL": { name: "阿图罗·梅里诺·贝尼特斯机场", city: "圣地亚哥", country: "智利", lat: -33.3930, lon: -70.7858, tz: "America/Santiago", icao: "SCEL" },
+        "LIM": { name: "豪尔赫·查韦斯机场", city: "利马", country: "秘鲁", lat: -12.0219, lon: -77.1143, tz: "America/Lima", icao: "SPJC" },
+        "BOG": { name: "埃尔多拉多机场", city: "波哥大", country: "哥伦比亚", lat: 4.7016, lon: -74.1469, tz: "America/Bogota", icao: "SKBO" },
+        "UIO": { name: "苏克雷元帅机场", city: "基多", country: "厄瓜多尔", lat: -0.1292, lon: -78.3575, tz: "America/Guayaquil", icao: "SEQM" },
+        
+        // 非洲
+        "CAI": { name: "开罗国际机场", city: "开罗", country: "埃及", lat: 30.1219, lon: 31.4056, tz: "Africa/Cairo", icao: "HECA" },
+        "HRG": { name: "赫尔格达国际机场", city: "赫尔格达", country: "埃及", lat: 27.1783, lon: 33.7994, tz: "Africa/Cairo", icao: "HEGN" },
+        "SSH": { name: "沙姆沙伊赫国际机场", city: "沙姆沙伊赫", country: "埃及", lat: 27.9773, lon: 34.3948, tz: "Africa/Cairo", icao: "HESH" },
+        "LXR": { name: "卢克索国际机场", city: "卢克索", country: "埃及", lat: 25.6710, lon: 32.7066, tz: "Africa/Cairo", icao: "HELX" },
+        "JNB": { name: "奥利弗·坦博机场", city: "约翰内斯堡", country: "南非", lat: -26.1392, lon: 28.2460, tz: "Africa/Johannesburg", icao: "FAOR" },
+        "CPT": { name: "开普敦国际机场", city: "开普敦", country: "南非", lat: -33.9648, lon: 18.6017, tz: "Africa/Johannesburg", icao: "FACT" },
+        "DUR": { name: "沙卡国王机场", city: "德班", country: "南非", lat: -29.6149, lon: 31.1198, tz: "Africa/Johannesburg", icao: "FALE" },
+        "NBO": { name: "乔莫·肯雅塔机场", city: "内罗毕", country: "肯尼亚", lat: -1.3192, lon: 36.9278, tz: "Africa/Nairobi", icao: "HKJK" },
+        "MBA": { name: "莫伊国际机场", city: "蒙巴萨", country: "肯尼亚", lat: -4.0348, lon: 39.5942, tz: "Africa/Nairobi", icao: "HKMO" },
+        "ADD": { name: "博莱国际机场", city: "亚的斯亚贝巴", country: "埃塞俄比亚", lat: 8.9779, lon: 38.7993, tz: "Africa/Addis_Ababa", icao: "HAAB" },
+        "DAR": { name: "朱利叶斯·尼雷尔机场", city: "达累斯萨拉姆", country: "坦桑尼亚", lat: -6.8781, lon: 39.2026, tz: "Africa/Dar_es_Salaam", icao: "HTDA" },
+        "ZNZ": { name: "阿贝德·阿曼尼·卡鲁姆机场", city: "桑给巴尔", country: "坦桑尼亚", lat: -6.2226, lon: 39.2249, tz: "Africa/Dar_es_Salaam", icao: "HTZA" },
+        "LOS": { name: "穆尔塔拉·穆罕默德机场", city: "拉各斯", country: "尼日利亚", lat: 6.5774, lon: 3.3211, tz: "Africa/Lagos", icao: "DNMM" },
+        "ABV": { name: "纳姆迪·阿齐基韦机场", city: "阿布贾", country: "尼日利亚", lat: 9.0068, lon: 7.2632, tz: "Africa/Lagos", icao: "DNAA" },
+        "ACC": { name: "科托卡国际机场", city: "阿克拉", country: "加纳", lat: 5.6052, lon: -0.1668, tz: "Africa/Accra", icao: "DGAA" },
+        "CMN": { name: "穆罕默德五世机场", city: "卡萨布兰卡", country: "摩洛哥", lat: 33.3675, lon: -7.5899, tz: "Africa/Casablanca", icao: "GMMN" },
+        "RAK": { name: "马拉喀什梅纳拉机场", city: "马拉喀什", country: "摩洛哥", lat: 31.6069, lon: -8.0363, tz: "Africa/Casablanca", icao: "GMMX" },
+        "TUN": { name: "突尼斯-迦太基机场", city: "突尼斯", country: "突尼斯", lat: 36.8510, lon: 10.2272, tz: "Africa/Tunis", icao: "DTTA" },
+        "ALG": { name: "阿尔及尔胡阿里·布迈丁机场", city: "阿尔及尔", country: "阿尔及利亚", lat: 36.6910, lon: 3.2154, tz: "Africa/Algiers", icao: "DAAG" },
+        
+        // 大洋洲
+        "SYD": { name: "金斯福德·史密斯机场", city: "悉尼", country: "澳大利亚", lat: -33.9461, lon: 151.1772, tz: "Australia/Sydney", icao: "YSSY" },
+        "MEL": { name: "墨尔本机场", city: "墨尔本", country: "澳大利亚", lat: -37.6733, lon: 144.8433, tz: "Australia/Melbourne", icao: "YMML" },
+        "BNE": { name: "布里斯班机场", city: "布里斯班", country: "澳大利亚", lat: -27.3842, lon: 153.1175, tz: "Australia/Brisbane", icao: "YBBN" },
+        "PER": { name: "珀斯机场", city: "珀斯", country: "澳大利亚", lat: -31.9403, lon: 115.9670, tz: "Australia/Perth", icao: "YPPH" },
+        "ADL": { name: "阿德莱德机场", city: "阿德莱德", country: "澳大利亚", lat: -34.9450, lon: 138.5306, tz: "Australia/Adelaide", icao: "YPAD" },
+        "CBR": { name: "堪培拉机场", city: "堪培拉", country: "澳大利亚", lat: -35.3069, lon: 149.1950, tz: "Australia/Sydney", icao: "YSCB" },
+        "DRW": { name: "达尔文国际机场", city: "达尔文", country: "澳大利亚", lat: -12.4144, lon: 130.8776, tz: "Australia/Darwin", icao: "YPDN" },
+        "CNS": { name: "凯恩斯机场", city: "凯恩斯", country: "澳大利亚", lat: -16.8857, lon: 145.7553, tz: "Australia/Brisbane", icao: "YBCS" },
+        "AKL": { name: "奥克兰机场", city: "奥克兰", country: "新西兰", lat: -37.0081, lon: 174.7917, tz: "Pacific/Auckland", icao: "NZAA" },
+        "WLG": { name: "惠灵顿机场", city: "惠灵顿", country: "新西兰", lat: -41.3272, lon: 174.8053, tz: "Pacific/Auckland", icao: "NZWN" },
+        "CHC": { name: "基督城机场", city: "基督城", country: "新西兰", lat: -43.4894, lon: 172.5322, tz: "Pacific/Auckland", icao: "NZCH" },
+        "ZQN": { name: "皇后镇机场", city: "皇后镇", country: "新西兰", lat: -45.0211, lon: 168.7394, tz: "Pacific/Auckland", icao: "NZQN" },
+        
+        // 其他重要机场（备用）
+        "PRY": { name: "比勒陀利亚机场", city: "比勒陀利亚", country: "南非", lat: -25.6523, lon: 28.1819, tz: "Africa/Johannesburg", icao: "FAWB" },
+        "PLZ": { name: "伊丽莎白港机场", city: "伊丽莎白港", country: "南非", lat: -33.9849, lon: 25.6173, tz: "Africa/Johannesburg", icao: "FAPE" },
+        "BFN": { name: "布隆方丹机场", city: "布隆方丹", country: "南非", lat: -29.0928, lon: 26.3024, tz: "Africa/Johannesburg", icao: "FABL" },
+        "HRE": { name: "哈拉雷机场", city: "哈拉雷", country: "津巴布韦", lat: -17.9318, lon: 31.0928, tz: "Africa/Harare", icao: "FVHA" },
+        "LUN": { name: "卢萨卡机场", city: "卢萨卡", country: "赞比亚", lat: -15.3308, lon: 28.4526, tz: "Africa/Lusaka", icao: "FLLS" },
+        "TIP": { name: "的黎波里机场", city: "的黎波里", country: "利比亚", lat: 32.6635, lon: 13.1590, tz: "Africa/Tripoli", icao: "HLLT" }
     };
     
-    // ============================================================
-    // 全局变量
-    // ============================================================
-    let accessToken = null;
-    let currentFlight = null;
-    let clockInterval = null;
-    let calendarInterval = null;
-    
-    // ============================================================
-    // 1. Google 日历授权
-    // ============================================================
-    let tokenClient = null;
-    
-    function initGoogleAuth() {
-        tokenClient = google.accounts.oauth2.initTokenClient({
-            client_id: GOOGLE_CLIENT_ID,
-            scope: 'https://www.googleapis.com/auth/calendar.readonly',
-            callback: (response) => {
-                if (response.access_token) {
-                    accessToken = response.access_token;
-                    document.getElementById('authStatus').innerHTML = '✅ 已连接 Google 日历';
-                    document.getElementById('authStatus').classList.add('connected');
-                    document.getElementById('authBtn').innerText = '已连接';
-                    document.getElementById('flightBadge').innerHTML = '✈️ 读取日历中...';
-                    fetchCalendarEvents();
-                    // 每5分钟刷新一次日历
-                    if (calendarInterval) clearInterval(calendarInterval);
-                    calendarInterval = setInterval(fetchCalendarEvents, 5 * 60 * 1000);
-                }
-            },
-        });
-        
-        document.getElementById('authBtn').onclick = () => {
-            if (accessToken) {
-                // 已连接，刷新 token
-                tokenClient.requestAccessToken({ prompt: '' });
-            } else {
-                tokenClient.requestAccessToken();
+    // 智能获取机场信息（支持 ICAO 代码查询，支持模糊匹配）
+    function getAirportInfo(code) {
+        code = code.toUpperCase();
+        // 直接匹配 IATA
+        if (airportDatabase[code]) return airportDatabase[code];
+        // 尝试通过 ICAO 匹配
+        for (let key in airportDatabase) {
+            if (airportDatabase[key].icao === code) {
+                return airportDatabase[key];
             }
+        }
+        // 返回默认值（使用迪拜作为默认）
+        return { name: code, city: code, country: "未知", lat: 25.2532, lon: 55.3657, tz: "Asia/Dubai", icao: "XXXX" };
+    }
+    
+    // 批量添加机场到数据库的函数（用于扩展）
+    function addAirport(iata, name, city, country, lat, lon, tz, icao) {
+        airportDatabase[iata.toUpperCase()] = { name, city, country, lat, lon, tz, icao };
+    }
+    
+    // ============================================================
+    // 📡 NOTAM 接口（使用 Aviationstack 获取机场通告）
+    // 由于直接免费 NOTAM API 较少，这里：
+    // 1. 优先使用 Aviationstack 的航班状态信息
+    // 2. 提供模拟 NOTAM 数据作为展示
+    // 3. 后续可接入 FAA/EASA 官方接口
+    // ============================================================
+    
+    // NOTAM 关键词映射（用于从航班状态中提取风险信息）
+    const notamRiskKeywords = {
+        "delay": ["延迟", "延误", "晚点", "delay", "delayed", "late"],
+        "cancellation": ["取消", "cancel", "cancelled", "终止"],
+        "weather": ["天气", "雷雨", "台风", "storm", "thunder", "typhoon", "fog", "雾"],
+        "runway": ["跑道", "跑道关闭", "跑道施工", "runway closed", "runway construction"],
+        "security": ["安保", "security", "安检", "strike", "罢工"],
+        "technical": ["技术故障", "机械故障", "technical issue", "maintenance", "维修"]
+    };
+    
+    // 获取 NOTAM 信息（模拟 + 航班状态分析）
+    async function fetchNOTAM(airportCode, flightStatus = null) {
+        const airport = getAirportInfo(airportCode);
+        const notamList = [];
+        
+        // 方法1：从 Aviationstack 航班状态中提取信息
+        if (flightStatus && flightStatus.flight && flightStatus.flight.status) {
+            const status = flightStatus.flight.status;
+            if (status === "delayed") {
+                notamList.push({ type: "warning", text: "⚠️ 航班状态：延误", detail: "建议联系航司确认最新起飞时间" });
+            } else if (status === "cancelled") {
+                notamList.push({ type: "critical", text: "❌ 航班状态：已取消", detail: "请立即联系航司改签" });
+            } else if (status === "diverted") {
+                notamList.push({ type: "warning", text: "🔄 航班状态：备降", detail: "原定目的地已更改" });
+            }
+        }
+        
+        // 方法2：基于机场的模拟 NOTAM 数据（演示用）
+        const mockNotams = {
+            "DXB": [
+                { type: "info", text: "📌 北跑道夜间维护 01:00-04:00", detail: "RWY 12L/30R" },
+                { type: "info", text: "🅿️ A区停车场施工，建议使用P1停车场", detail: "2026年4月25日-5月10日" }
+            ],
+            "PVG": [
+                { type: "warning", text: "⚠️ 雷雨天气预警", detail: "预计19:00-22:00有强对流天气，请注意航班动态" },
+                { type: "info", text: "📋 浦东S2卫星厅启用新登机口", detail: "H101-H120" }
+            ],
+            "PEK": [
+                { type: "info", text: "🛬 首都机场3号航站楼加固施工", detail: "建议提前2小时到机场" },
+                { type: "warning", text: "⚠️ 流量控制", detail: "晚高峰时段可能有限制" }
+            ],
+            "LHR": [
+                { type: "warning", text: "⚠️ 希思罗机场安检升级", detail: "建议提前3小时到达" },
+                { type: "info", text: "🔄 机场快线临时调整", detail: "Heathrow Express班次减少" }
+            ],
+            "JFK": [
+                { type: "critical", text: "❌ 跑道施工", textEn: "RWY 4L/22R Closed", detail: "2026年4月20日-4月27日" },
+                { type: "info", text: "🅿️ 停车场系统升级", detail: "使用手机支付可享优惠" }
+            ],
+            "CDG": [
+                { type: "info", text: "📢 2E航站楼启用自助行李托运", detail: "可节省约15分钟" },
+                { type: "warning", text: "⚠️ 交通管制", detail: "RER B线部分区间停运" }
+            ],
+            "SIN": [
+                { type: "info", text: "🌿 樟宜机场T4恢复运营", detail: "多家航司已搬迁" },
+                { type: "warning", text: "⚠️ 天气预警", detail: "午后雷阵雨" }
+            ],
+            "HND": [
+                { type: "info", text: "🚄 京急线增开班次", detail: "往东京市区更方便" },
+                { type: "info", text: "🛃 海关电子申报系统上线", detail: "Visit Japan Web使用" }
+            ]
         };
-    }
-    
-    // 读取日历事件（未来24小时）
-    async function fetchCalendarEvents() {
-        if (!accessToken) return;
         
-        try {
-            const now = new Date();
-            const next24h = new Date(now.getTime() + 24 * 3600000);
-            const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${next24h.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=10`;
-            
-            const response = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${accessToken}` }
-            });
-            const data = await response.json();
-            
-            if (data.error) {
-                console.error("日历 API 错误:", data.error);
-                if (data.error.code === 401) {
-                    accessToken = null;
-                    document.getElementById('authStatus').innerHTML = '🔐 会话过期，请重新连接';
-                    document.getElementById('authStatus').classList.remove('connected');
-                    document.getElementById('authBtn').innerText = '重新连接';
-                }
-                return;
-            }
-            
-            let foundFlight = null;
-            if (data.items && data.items.length > 0) {
-                for (const event of data.items) {
-                    const flightInfo = parseFlightFromEvent(event);
-                    if (flightInfo) {
-                        foundFlight = flightInfo;
-                        break;
-                    }
-                }
-            }
-            
-            if (foundFlight) {
-                currentFlight = foundFlight;
-                document.getElementById('flightBadge').innerHTML = `✈️ ${currentFlight.flightNumber}`;
-                await displayFlightInfo(currentFlight);
-            } else {
-                document.getElementById('flightBadge').innerHTML = '📅 未来24小时无航班';
-                showNoFlight();
-            }
-        } catch (error) {
-            console.error("读取日历失败:", error);
-        }
-    }
-    
-    // 解析日历事件中的航班信息
-    function parseFlightFromEvent(event) {
-        const title = event.summary || '';
-        // 匹配格式：DXB-PVG 或 DXB→PVG 或 DXB to PVG 或 DXB PVG
-        let match = title.match(/([A-Z]{3})[-→➡\s]+([A-Z]{3})/);
-        if (!match) {
-            // 尝试匹配三个大写字母组合
-            const codes = title.match(/\b([A-Z]{3})\b/g);
-            if (codes && codes.length >= 2) {
-                match = [null, codes[0], codes[1]];
-            }
+        // 获取该机场的模拟 NOTAM
+        const airportMock = mockNotams[airportCode];
+        if (airportMock) {
+            notamList.push(...airportMock);
+        } else {
+            // 默认 NOTAM
+            notamList.push({ type: "info", text: "📡 暂无重要航行通告", detail: "当前机场运行正常" });
         }
         
-        if (match && match[1] && match[2]) {
-            const origin = match[1].toUpperCase();
-            const destination = match[2].toUpperCase();
-            const startTime = event.start.dateTime ? new Date(event.start.dateTime) : null;
-            
-            if (!startTime) return null;
-            
-            // 尝试从标题提取航班号
-            let flightNumber = "";
-            const flightMatch = title.match(/([A-Z]{2,3}\d{1,4})/i);
-            if (flightMatch) {
-                flightNumber = flightMatch[1].toUpperCase();
-            } else {
-                flightNumber = `FL${origin}${destination}`;
-            }
-            
-            return {
-                flightNumber: flightNumber,
-                origin: origin,
-                destination: destination,
-                departureTime: startTime,
-                pickupTime: new Date(startTime.getTime() - 135 * 60000), // 起飞前2h15m
-                rawTitle: title,
-                eventId: event.id
-            };
+        return notamList;
+    }
+    
+    // 渲染 NOTAM 到界面
+    function renderNOTAM(containerId, notamList) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        
+        if (!notamList || notamList.length === 0) {
+            container.innerHTML = `
+                <div class="label-sm">📡 NOTAM 航行通告</div>
+                <div class="loading">暂无通告</div>
+            `;
+            return;
         }
-        return null;
+        
+        let html = `<div class="label-sm">📡 NOTAM 航行通告</div><div class="notam-list">`;
+        for (const notam of notamList) {
+            const typeClass = notam.type === "critical" ? "critical" : (notam.type === "warning" ? "notam-warning" : "info");
+            html += `<div class="notam-item">${notam.text}</div>`;
+            if (notam.detail) {
+                html += `<div style="font-size:0.6rem; color:#88aacc; margin-left:8px; margin-bottom:6px;">${notam.detail}</div>`;
+            }
+        }
+        html += `</div>`;
+        container.innerHTML = html;
     }
     
     // ============================================================
-    // 2. 天气获取（OpenWeatherMap）
+    // 天气获取
     // ============================================================
     async function fetchWeather(lat, lon, airportCode) {
         try {
@@ -533,26 +740,20 @@
                 
                 const iconMap = {
                     "Clear": "☀️", "Clouds": "☁️", "Rain": "🌧️", "Snow": "❄️",
-                    "Thunderstorm": "⛈️", "Drizzle": "🌦️", "Mist": "🌫️", "Fog": "🌫️",
-                    "Haze": "🌫️", "Smoke": "💨", "Dust": "🌪️"
+                    "Thunderstorm": "⛈️", "Drizzle": "🌦️", "Mist": "🌫️", "Fog": "🌫️"
                 };
-                const weatherMain = data.weather[0].main;
                 
                 return {
                     temp: Math.round(data.main.temp),
-                    tempMin: Math.round(data.main.temp_min),
-                    tempMax: Math.round(data.main.temp_max),
                     desc: data.weather[0].description,
-                    icon: iconMap[weatherMain] || "🌍",
+                    icon: iconMap[data.weather[0].main] || "🌍",
                     dress: dress,
                     humidity: data.main.humidity,
-                    windSpeed: data.wind.speed,
                     feelsLike: Math.round(data.main.feels_like)
                 };
             }
             return getMockWeather(airportCode);
         } catch (error) {
-            console.error("天气获取失败:", error);
             return getMockWeather(airportCode);
         }
     }
@@ -569,68 +770,175 @@
     }
     
     // ============================================================
-    // 3. 双时钟更新
+    // 航班信息获取（Aviationstack）
     // ============================================================
-    function startDualClocks(originTz, destTz) {
-        if (clockInterval) clearInterval(clockInterval);
-        
-        function update() {
-            try {
-                const originTime = new Date().toLocaleTimeString('zh-CN', { timeZone: originTz, hour12: false });
-                const originDate = new Date().toLocaleDateString('zh-CN', { timeZone: originTz, weekday: 'long', month: 'long', day: 'numeric' });
-                document.getElementById('originTime').innerText = originTime;
-                document.getElementById('originDate').innerText = originDate;
-            } catch(e) {
-                document.getElementById('originTime').innerText = new Date().toLocaleTimeString();
-                document.getElementById('originDate').innerText = new Date().toLocaleDateString();
+    async function fetchFlightInfo(flightNumber) {
+        try {
+            const url = `https://api.aviationstack.com/v1/flights?access_key=${AVIATIONSTACK_KEY}&flight_iata=${flightNumber}&limit=1`;
+            const response = await fetch(url);
+            const data = await response.json();
+            
+            if (data.error) {
+                console.error("API错误:", data.error);
+                return null;
             }
             
-            try {
-                const destTime = new Date().toLocaleTimeString('zh-CN', { timeZone: destTz, hour12: false });
-                const destDate = new Date().toLocaleDateString('zh-CN', { timeZone: destTz, weekday: 'long', month: 'long', day: 'numeric' });
-                document.getElementById('destTime').innerText = destTime;
-                document.getElementById('destDate').innerText = destDate;
-            } catch(e) {
-                document.getElementById('destTime').innerText = new Date().toLocaleTimeString();
-                document.getElementById('destDate').innerText = new Date().toLocaleDateString();
+            if (data.data && data.data.length > 0) {
+                return data.data[0];
             }
+            return null;
+        } catch (error) {
+            console.error("航班查询失败:", error);
+            return null;
         }
-        
-        update();
-        clockInterval = setInterval(update, 1000);
     }
     
     // ============================================================
-    // 4. 显示航班信息
+    // Google 日历集成
     // ============================================================
-    async function displayFlightInfo(flight) {
-        const originInfo = airportDB[flight.origin] || { 
-            name: flight.origin, city: flight.origin, 
-            lat: 25.2532, lon: 55.3657, tz: "Asia/Dubai", country: "未知" 
+    let accessToken = null;
+    let currentFlight = null;
+    let clockInterval = null;
+    let tokenClient = null;
+    
+    function initGoogleAuth() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: 'https://www.googleapis.com/auth/calendar.readonly',
+            callback: async (response) => {
+                if (response.access_token) {
+                    accessToken = response.access_token;
+                    document.getElementById('authStatus').innerHTML = '✅ 已连接 Google 日历';
+                    document.getElementById('authStatus').classList.add('connected');
+                    await fetchCalendarEvents();
+                }
+            },
+        });
+        
+        document.getElementById('authBtn').onclick = () => {
+            if (accessToken) {
+                tokenClient.requestAccessToken({ prompt: '' });
+            } else {
+                tokenClient.requestAccessToken();
+            }
         };
-        const destInfo = airportDB[flight.destination] || { 
-            name: flight.destination, city: flight.destination, 
-            lat: 51.4700, lon: -0.4543, tz: "Europe/London", country: "未知" 
-        };
+    }
+    
+    async function fetchCalendarEvents() {
+        if (!accessToken) return;
+        try {
+            const now = new Date();
+            const next24h = new Date(now.getTime() + 24 * 3600000);
+            const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${next24h.toISOString()}&singleEvents=true&orderBy=startTime&maxResults=10`;
+            
+            const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}` }
+            });
+            const data = await response.json();
+            
+            if (data.error) {
+                if (data.error.code === 401) {
+                    accessToken = null;
+                    document.getElementById('authStatus').innerHTML = '🔐 会话过期，请重新连接';
+                    document.getElementById('authStatus').classList.remove('connected');
+                }
+                return;
+            }
+            
+            let foundFlight = null;
+            if (data.items && data.items.length > 0) {
+                for (const event of data.items) {
+                    const flightInfo = parseFlightFromEvent(event);
+                    if (flightInfo) {
+                        foundFlight = flightInfo;
+                        break;
+                    }
+                }
+            }
+            
+            if (foundFlight) {
+                currentFlight = foundFlight;
+                await displayFullFlightInfo(currentFlight);
+            } else {
+                showNoFlight();
+            }
+        } catch (error) {
+            console.error("读取日历失败:", error);
+        }
+    }
+    
+    function parseFlightFromEvent(event) {
+        const title = event.summary || '';
+        let match = title.match(/([A-Z]{3})[-→➡\s]+([A-Z]{3})/);
+        if (!match) {
+            const codes = title.match(/\b([A-Z]{3})\b/g);
+            if (codes && codes.length >= 2) {
+                match = [null, codes[0], codes[1]];
+            }
+        }
+        
+        if (match && match[1] && match[2]) {
+            const origin = match[1].toUpperCase();
+            const destination = match[2].toUpperCase();
+            const startTime = event.start.dateTime ? new Date(event.start.dateTime) : null;
+            
+            if (!startTime) return null;
+            
+            let flightNumber = "";
+            const flightMatch = title.match(/([A-Z]{2,3}\d{1,4})/i);
+            if (flightMatch) {
+                flightNumber = flightMatch[1].toUpperCase();
+            } else {
+                flightNumber = `FL${origin}${destination}`;
+            }
+            
+            return {
+                flightNumber: flightNumber,
+                origin: origin,
+                destination: destination,
+                departureTime: startTime,
+                pickupTime: new Date(startTime.getTime() - 135 * 60000),
+                rawTitle: title
+            };
+        }
+        return null;
+    }
+    
+    // ============================================================
+    // 完整显示航班信息（含 NOTAM）
+    // ============================================================
+    async function displayFullFlightInfo(flight) {
+        // 获取机场信息（使用内置数据库）
+        const originInfo = getAirportInfo(flight.origin);
+        const destInfo = getAirportInfo(flight.destination);
         
         // 更新面板标题
         document.getElementById('originCode').innerText = flight.origin;
-        document.getElementById('originName').innerHTML = `${originInfo.city || originInfo.name}<span style="font-size:0.7rem;"> · ${originInfo.country}</span>`;
+        document.getElementById('originName').innerHTML = `${originInfo.city || originInfo.name} · ${originInfo.country}`;
         document.getElementById('destCode').innerText = flight.destination;
-        document.getElementById('destName').innerHTML = `${destInfo.city || destInfo.name}<span style="font-size:0.7rem;"> · ${destInfo.country}</span>`;
+        document.getElementById('destName').innerHTML = `${destInfo.city || destInfo.name} · ${destInfo.country}`;
         
         // 计算时间
         const depTime = flight.departureTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         const depDate = flight.departureTime.toLocaleDateString([], { month: 'numeric', day: 'numeric' });
         const pickupTime = flight.pickupTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
         
-        // 判断是否已起飞
         const now = new Date();
         const isDeparted = now > flight.departureTime;
         const statusText = isDeparted ? "🟢 已起飞" : "⏰ 等待起飞";
-        const statusClass = isDeparted ? "flight-status-badge" : "flight-status-badge warning";
+        const statusClass = isDeparted ? "flight-status-badge" : "flight-status-badge";
         
-        // 更新上方航班面板
+        // 获取航班状态（用于 NOTAM）
+        let flightStatusData = null;
+        try {
+            flightStatusData = await fetchFlightInfo(flight.flightNumber);
+        } catch(e) {}
+        
+        // 获取 NOTAM
+        const originNotams = await fetchNOTAM(flight.origin, flightStatusData);
+        const destNotams = await fetchNOTAM(flight.destination, flightStatusData);
+        
+        // 更新航班面板
         document.getElementById('flightPanel').innerHTML = `
             <div class="flight-progress">
                 <div class="flight-info-row">
@@ -668,13 +976,45 @@
             `;
         }
         
+        // 渲染 NOTAM
+        renderNOTAM('originNotam', originNotams);
+        renderNOTAM('destNotam', destNotams);
+        
         // 启动双时钟
         startDualClocks(originInfo.tz, destInfo.tz);
     }
     
+    function startDualClocks(originTz, destTz) {
+        if (clockInterval) clearInterval(clockInterval);
+        
+        function update() {
+            try {
+                const originTime = new Date().toLocaleTimeString('zh-CN', { timeZone: originTz, hour12: false });
+                const originDate = new Date().toLocaleDateString('zh-CN', { timeZone: originTz, weekday: 'long', month: 'long', day: 'numeric' });
+                document.getElementById('originTime').innerHTML = originTime;
+                document.getElementById('originDate').innerHTML = originDate;
+            } catch(e) {
+                document.getElementById('originTime').innerHTML = new Date().toLocaleTimeString();
+                document.getElementById('originDate').innerHTML = new Date().toLocaleDateString();
+            }
+            
+            try {
+                const destTime = new Date().toLocaleTimeString('zh-CN', { timeZone: destTz, hour12: false });
+                const destDate = new Date().toLocaleDateString('zh-CN', { timeZone: destTz, weekday: 'long', month: 'long', day: 'numeric' });
+                document.getElementById('destTime').innerHTML = destTime;
+                document.getElementById('destDate').innerHTML = destDate;
+            } catch(e) {
+                document.getElementById('destTime').innerHTML = new Date().toLocaleTimeString();
+                document.getElementById('destDate').innerHTML = new Date().toLocaleDateString();
+            }
+        }
+        
+        update();
+        clockInterval = setInterval(update, 1000);
+    }
+    
     function showNoFlight() {
-        // 恢复到迪拜单时钟模式
-        const dubaiInfo = airportDB["DXB"];
+        const dubaiInfo = getAirportInfo("DXB");
         document.getElementById('originCode').innerText = "DXB";
         document.getElementById('originName').innerHTML = `${dubaiInfo.city} · ${dubaiInfo.country}`;
         document.getElementById('destCode').innerText = "---";
@@ -683,36 +1023,33 @@
         document.getElementById('flightPanel').innerHTML = `
             <div class="standby-mode">
                 <div>📅 未来24小时无航班</div>
-                <div class="flight-meta" style="margin-top: 8px;">在日历中添加 "DXB→PVG" 格式的事件</div>
-                <div class="flight-meta">🌍 当前显示迪拜天气和时间</div>
+                <div class="flight-meta">在日历中添加 "DXB→PVG" 格式的事件</div>
             </div>
         `;
         
-        // 只更新迪拜时钟
         if (clockInterval) clearInterval(clockInterval);
         clockInterval = setInterval(() => {
             const dubaiTime = new Date().toLocaleTimeString('zh-CN', { timeZone: dubaiInfo.tz, hour12: false });
             const dubaiDate = new Date().toLocaleDateString('zh-CN', { timeZone: dubaiInfo.tz, weekday: 'long', month: 'long', day: 'numeric' });
-            document.getElementById('originTime').innerText = dubaiTime;
-            document.getElementById('originDate').innerText = dubaiDate;
-            document.getElementById('destTime').innerText = '--:--:--';
-            document.getElementById('destDate').innerText = '';
+            document.getElementById('originTime').innerHTML = dubaiTime;
+            document.getElementById('originDate').innerHTML = dubaiDate;
+            document.getElementById('destTime').innerHTML = '--:--:--';
+            document.getElementById('destDate').innerHTML = '';
         }, 1000);
     }
     
     // ============================================================
-    // 5. 屏幕常亮 + 初始化
+    // 初始化
     // ============================================================
     setInterval(() => {
         document.title = "✈️ " + new Date().toLocaleTimeString();
     }, 10000);
     
-    // 启动
     window.addEventListener('load', () => {
         initGoogleAuth();
         
         // 默认显示迪拜天气
-        const dubaiInfo = airportDB["DXB"];
+        const dubaiInfo = getAirportInfo("DXB");
         (async () => {
             const weather = await fetchWeather(dubaiInfo.lat, dubaiInfo.lon, "DXB");
             if (weather) {
