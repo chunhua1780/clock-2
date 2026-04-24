@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>飞行时钟 · 触摸配置工坊</title>
+    <title>飞行时钟 · 触摸配置工坊 (iPad模拟器)</title>
     <style>
         * {
             margin: 0;
@@ -19,8 +19,7 @@
             min-height: 100vh;
         }
         .container {
-            max-width: 800px;
-            margin: 0 auto;
+            max-width: 100%;
         }
         h1 {
             font-size: 1.6rem;
@@ -31,49 +30,82 @@
         .sub {
             font-size: 0.7rem;
             color: #88aacc;
-            margin-bottom: 20px;
+            margin-bottom: 12px;
         }
-        /* 模式切换按钮 */
-        .mode-selector {
+        /* 工具栏 */
+        .toolbar {
             display: flex;
             gap: 12px;
-            margin-bottom: 20px;
+            flex-wrap: wrap;
+            margin-bottom: 16px;
             background: #11161f;
             border-radius: 60px;
-            padding: 6px;
+            padding: 8px 16px;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .mode-selector {
+            display: flex;
+            gap: 8px;
+            background: #1a1f2e;
+            border-radius: 40px;
+            padding: 4px;
         }
         .mode-btn {
-            flex: 1;
-            text-align: center;
-            padding: 10px;
-            border-radius: 40px;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.75rem;
             font-weight: 600;
             cursor: pointer;
-            background: #1a1f2e;
+            background: transparent;
             color: #88aacc;
-            transition: 0.2s;
         }
         .mode-btn.active {
             background: #ffaa44;
             color: #0a0e1a;
         }
-        /* 预览画布 */
-        .preview-stage {
-            background: linear-gradient(135deg, #0a0a2a, #1a2a4a);
-            border-radius: 48px;
-            min-height: 500px;
-            position: relative;
-            margin-bottom: 24px;
-            overflow: hidden;
-            touch-action: none;
-            border: 1px solid rgba(255,255,255,0.1);
+        .rotate-btn {
+            background: #2a6faa;
+            border: none;
+            padding: 6px 14px;
+            border-radius: 30px;
+            color: white;
+            font-size: 0.75rem;
+            cursor: pointer;
         }
-        /* 布局容器 */
+        /* iPad 模拟器容器 */
+        .ipad-simulator {
+            background: #1a2a3a;
+            border-radius: 32px;
+            padding: 12px;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+            margin-bottom: 20px;
+            transition: all 0.3s;
+        }
+        .ipad-screen {
+            background: linear-gradient(135deg, #0a0a2a, #1a2a4a);
+            border-radius: 24px;
+            overflow: hidden;
+            position: relative;
+            margin: 0 auto;
+            transition: all 0.2s;
+            touch-action: none;
+        }
+        /* 横屏模式 (iPad 默认) */
+        .ipad-screen.landscape {
+            width: 100%;
+            aspect-ratio: 4 / 3;
+        }
+        /* 竖屏模式 (辅助调整) */
+        .ipad-screen.portrait {
+            width: 100%;
+            aspect-ratio: 3 / 4;
+        }
+        /* 三种布局容器 */
         .mode-layout {
             display: none;
             width: 100%;
             height: 100%;
-            min-height: 500px;
             position: relative;
         }
         .mode-layout.active {
@@ -84,11 +116,11 @@
             position: absolute;
             cursor: grab;
             touch-action: none;
-            background: transparent;
-            z-index: 10;
             transform: translate(-50%, -50%);
             text-align: center;
             white-space: nowrap;
+            z-index: 10;
+            background: transparent;
         }
         .draggable:active {
             cursor: grabbing;
@@ -110,7 +142,7 @@
         .weather-text {
             font-size: 20px;
         }
-        /* 双屏/三屏辅助布局 */
+        /* 双屏/三屏布局辅助 */
         .dual-layout, .triple-layout {
             display: flex;
             width: 100%;
@@ -134,34 +166,33 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.8rem;
+            font-size: 0.7rem;
         }
         .triple-bottom {
             flex: 1;
             display: flex;
         }
         /* 控制面板 */
-        .section {
+        .control-panel {
             background: #11161f;
             border-radius: 32px;
-            padding: 18px;
-            margin-bottom: 18px;
-            border: 1px solid #2a3344;
+            padding: 16px;
+            margin-bottom: 16px;
         }
         .section-title {
-            font-size: 0.95rem;
+            font-size: 0.9rem;
             font-weight: 600;
             color: #ffd966;
             margin-bottom: 12px;
         }
         .control-row {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
         }
         .control-label {
             display: flex;
             justify-content: space-between;
-            font-size: 0.75rem;
-            margin-bottom: 6px;
+            font-size: 0.7rem;
+            margin-bottom: 4px;
             color: #aabbdd;
         }
         input[type="range"] {
@@ -173,15 +204,15 @@
         }
         input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 20px;
+            width: 18px;
+            height: 18px;
+            border-radius: 18px;
             background: #ffaa44;
             cursor: pointer;
         }
         input[type="color"] {
             width: 100%;
-            height: 40px;
+            height: 36px;
             border: 1px solid #2a3344;
             border-radius: 20px;
             background: #1a1f2e;
@@ -189,14 +220,16 @@
         }
         .options-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-            gap: 12px;
+            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            gap: 10px;
             margin-top: 8px;
+            max-height: 200px;
+            overflow-y: auto;
         }
         .style-card {
             background: #1a1f2e;
             border-radius: 20px;
-            padding: 10px;
+            padding: 8px;
             text-align: center;
             cursor: pointer;
             border: 2px solid transparent;
@@ -206,7 +239,7 @@
         }
         button {
             width: 100%;
-            padding: 14px;
+            padding: 12px;
             border: none;
             border-radius: 40px;
             font-weight: bold;
@@ -229,8 +262,8 @@
             font-family: monospace;
             color: #aaffdd;
             word-break: break-all;
-            margin-top: 16px;
-            max-height: 160px;
+            margin-top: 12px;
+            max-height: 140px;
             overflow-y: auto;
         }
         .toast {
@@ -241,7 +274,7 @@
             background: #ffaa44;
             color: #0a0e1a;
             text-align: center;
-            padding: 12px;
+            padding: 10px;
             border-radius: 40px;
             font-weight: bold;
             z-index: 2000;
@@ -252,79 +285,90 @@
             70% { opacity: 1; }
             100% { opacity: 0; visibility: hidden; }
         }
+        .flex-between {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
 <div class="container">
-    <h1>🎨 触摸配置工坊</h1>
-    <div class="sub">👆 单指拖拽移动位置　✌️ 双指缩放字体大小</div>
+    <h1>🎨 iPad 布局工坊</h1>
+    <div class="sub">📱 手机模拟 iPad 横屏/竖屏 · 触摸拖拽缩放 · 自动适配真实比例</div>
 
-    <div class="mode-selector">
-        <div class="mode-btn active" data-mode="single">🕐 单屏 (无航班)</div>
-        <div class="mode-btn" data-mode="dual">📅 双屏 (计划航班)</div>
-        <div class="mode-btn" data-mode="triple">✈️ 三屏 (飞行中)</div>
+    <div class="toolbar">
+        <div class="mode-selector">
+            <div class="mode-btn active" data-mode="single">单屏</div>
+            <div class="mode-btn" data-mode="dual">双屏</div>
+            <div class="mode-btn" data-mode="triple">三屏</div>
+        </div>
+        <button class="rotate-btn" id="rotateBtn">🔄 切换横竖屏</button>
     </div>
 
-    <div class="preview-stage" id="previewStage">
-        <!-- 单屏模式 -->
-        <div id="singleLayout" class="mode-layout active">
-            <div class="draggable" data-element="clock" style="left:50%; top:35%;">
-                <div class="clock-text" id="singleClockText">12:34</div>
+    <!-- iPad 模拟器 -->
+    <div class="ipad-simulator">
+        <div id="ipadScreen" class="ipad-screen landscape">
+            <!-- 单屏布局 -->
+            <div id="singleLayout" class="mode-layout active">
+                <div class="draggable" data-element="clock" style="left:50%; top:35%;">
+                    <div class="clock-text" id="singleClockText">12:34</div>
+                </div>
+                <div class="draggable" data-element="date" style="left:50%; top:75%;">
+                    <div class="date-text" id="singleDateText"></div>
+                </div>
+                <div class="draggable" data-element="weather" style="left:85%; top:15%;">
+                    <div class="weather-text" id="singleWeatherText">☀️ 32°C</div>
+                </div>
             </div>
-            <div class="draggable" data-element="date" style="left:50%; top:75%;">
-                <div class="date-text" id="singleDateText"></div>
-            </div>
-            <div class="draggable" data-element="weather" style="left:85%; top:15%;">
-                <div class="weather-text" id="singleWeatherText">☀️ 32°C</div>
-            </div>
-        </div>
 
-        <!-- 双屏模式 -->
-        <div id="dualLayout" class="mode-layout">
-            <div class="dual-layout">
-                <div class="dual-panel" id="dualLeftPanel">
-                    <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                        <div class="clock-text" id="dualLeftClock">12:34</div>
-                    </div>
-                    <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                        <div class="weather-text" id="dualLeftWeather">☀️ 32°C</div>
-                    </div>
-                </div>
-                <div class="dual-panel" id="dualRightPanel">
-                    <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                        <div class="clock-text" id="dualRightClock">12:34</div>
-                    </div>
-                    <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                        <div class="weather-text" id="dualRightWeather">🌤️ 28°C</div>
-                    </div>
-                </div>
-            </div>
-            <div style="position:absolute; top:10px; left:10px; right:10px; background:rgba(0,0,0,0.6); border-radius:20px; padding:8px; text-align:center; font-size:0.7rem; pointer-events:none;">
-                ✈️ 计划航班 · DXB → PVG · 起飞 14:30 (当地) / 10:30 (迪拜)
-            </div>
-        </div>
-
-        <!-- 三屏模式 -->
-        <div id="tripleLayout" class="mode-layout">
-            <div class="triple-layout">
-                <div class="triple-top" style="pointer-events:none;">
-                    ✈️ 飞行中 · DXB → PVG · 已飞 2h30m · 剩余 3h20m
-                </div>
-                <div class="triple-bottom">
-                    <div class="dual-panel" id="tripleLeftPanel">
+            <!-- 双屏布局 -->
+            <div id="dualLayout" class="mode-layout">
+                <div class="dual-layout">
+                    <div class="dual-panel" id="dualLeftPanel">
                         <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                            <div class="clock-text" id="tripleLeftClock">12:34</div>
+                            <div class="clock-text" id="dualLeftClock">12:34</div>
                         </div>
                         <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                            <div class="weather-text" id="tripleLeftWeather">☀️ 32°C</div>
+                            <div class="weather-text" id="dualLeftWeather">☀️ 32°C</div>
                         </div>
                     </div>
-                    <div class="dual-panel" id="tripleRightPanel">
+                    <div class="dual-panel" id="dualRightPanel">
                         <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                            <div class="clock-text" id="tripleRightClock">12:34</div>
+                            <div class="clock-text" id="dualRightClock">12:34</div>
                         </div>
                         <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                            <div class="weather-text" id="tripleRightWeather">🌤️ 28°C</div>
+                            <div class="weather-text" id="dualRightWeather">🌤️ 28°C</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="position:absolute; top:10px; left:10px; right:10px; background:rgba(0,0,0,0.5); border-radius:20px; padding:6px; text-align:center; font-size:0.65rem; pointer-events:none;">
+                    ✈️ 计划航班 · DXB → PVG · 起飞 14:30 (当地) / 10:30 (迪拜)
+                </div>
+            </div>
+
+            <!-- 三屏布局 -->
+            <div id="tripleLayout" class="mode-layout">
+                <div class="triple-layout">
+                    <div class="triple-top">
+                        ✈️ 飞行中 · DXB → PVG · 已飞 2h30m · 剩余 3h20m
+                    </div>
+                    <div class="triple-bottom">
+                        <div class="dual-panel" id="tripleLeftPanel">
+                            <div class="draggable" data-element="clock" style="left:50%; top:40%;">
+                                <div class="clock-text" id="tripleLeftClock">12:34</div>
+                            </div>
+                            <div class="draggable" data-element="weather" style="left:80%; top:15%;">
+                                <div class="weather-text" id="tripleLeftWeather">☀️ 32°C</div>
+                            </div>
+                        </div>
+                        <div class="dual-panel" id="tripleRightPanel">
+                            <div class="draggable" data-element="clock" style="left:50%; top:40%;">
+                                <div class="clock-text" id="tripleRightClock">12:34</div>
+                            </div>
+                            <div class="draggable" data-element="weather" style="left:80%; top:15%;">
+                                <div class="weather-text" id="tripleRightWeather">🌤️ 28°C</div>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -332,9 +376,9 @@
         </div>
     </div>
 
-    <!-- 调节选中元素 -->
-    <div class="section">
-        <div class="section-title">🎯 当前选中元素调节</div>
+    <!-- 选中元素调节 -->
+    <div class="control-panel">
+        <div class="section-title">🎯 选中元素调节</div>
         <div class="control-row">
             <div class="control-label">字体大小 <span id="fontSizeVal">48</span>px</div>
             <input type="range" id="fontSizeSlider" min="12" max="120" step="2" value="48">
@@ -350,16 +394,16 @@
     </div>
 
     <!-- 风格与颜色 -->
-    <div class="section">
+    <div class="control-panel">
         <div class="section-title">🎴 翻页风格 (20种)</div>
         <div class="options-grid" id="flipGrid"></div>
     </div>
-    <div class="section">
+    <div class="control-panel">
         <div class="section-title">📝 艺术字体 (35种)</div>
         <div class="options-grid" id="fontGrid"></div>
     </div>
-    <div class="section">
-        <div class="section-title">🎨 全局颜色</div>
+    <div class="control-panel">
+        <div class="section-title">🎨 主题颜色</div>
         <div class="control-row"><div class="control-label">白天背景</div><input type="color" id="dayBg" value="#e8f0f5"></div>
         <div class="control-row"><div class="control-label">白天文字</div><input type="color" id="dayText" value="#1a2a3a"></div>
         <div class="control-row"><div class="control-label">夜晚背景</div><input type="color" id="nightBg" value="#0a0e1a"></div>
@@ -367,9 +411,9 @@
         <div class="control-row"><div class="control-label">强调色</div><input type="color" id="accentColor" value="#ffaa44"></div>
     </div>
 
-    <button class="btn-primary" id="exportBtn">📤 导出配置 (三种模式独立保存)</button>
-    <button class="btn-secondary" id="resetBtn">🔄 重置当前模式布局</button>
-    <div class="config-output" id="configOutput">调整完成后点击「导出配置」，复制 JSON 发给我</div>
+    <button class="btn-primary" id="exportBtn">📤 导出配置 (适用于 iPad Air 2)</button>
+    <button class="btn-secondary" id="resetBtn">🔄 重置当前模式 (以当前横竖屏为准)</button>
+    <div class="config-output" id="configOutput">调整完成后点击「导出配置」</div>
 </div>
 
 <script>
@@ -388,13 +432,20 @@
     setInterval(updateTime, 1000);
     updateTime();
 
-    // ======================== 全局变量 ========================
-    let currentMode = "single";          // single, dual, triple
-    let selectedElement = null;          // 当前拖拽/选中的 DOM 元素
-    let dragData = null;                 // 拖拽起始数据
-    let pinchData = null;                // 双指缩放数据
+    // ======================== 全局状态 ========================
+    let currentMode = "single";      // single, dual, triple
+    let isLandscape = true;          // 横屏 true, 竖屏 false
+    let selectedElement = null;
+    let dragData = null;
+    let pinchData = null;
 
-    // 获取当前模式下所有可拖拽元素
+    const ipadScreen = document.getElementById('ipadScreen');
+    const singleLayout = document.getElementById('singleLayout');
+    const dualLayout = document.getElementById('dualLayout');
+    const tripleLayout = document.getElementById('tripleLayout');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
+    // 获取当前可见的所有可拖拽元素
     function getCurrentDraggables() {
         if (currentMode === "single") {
             return Array.from(document.querySelectorAll('#singleLayout .draggable'));
@@ -405,15 +456,7 @@
         }
     }
 
-    // 获取当前模式下某个特定类型的元素（用于滑块控制）
-    function findElementByType(type) {
-        const selector = `.draggable[data-element="${type}"]`;
-        if (currentMode === "single") return document.querySelector('#singleLayout ' + selector);
-        if (currentMode === "dual") return document.querySelector('#dualLayout ' + selector);
-        return document.querySelector('#tripleLayout ' + selector);
-    }
-
-    // 更新滑块值（根据当前选中元素）
+    // 更新滑块显示（根据当前选中元素）
     function updateSlidersFromElement(el) {
         if (!el) return;
         const left = parseFloat(el.style.left);
@@ -434,14 +477,14 @@
                 document.getElementById('fontSizeVal').innerText = fontSize;
             }
         }
-        // 高亮选中元素
+        // 高亮
         getCurrentDraggables().forEach(d => d.style.border = 'none');
         el.style.border = '2px solid #ffaa44';
         el.style.borderRadius = '12px';
         el.style.background = 'rgba(0,0,0,0.2)';
     }
 
-    // 应用滑块值到当前选中元素
+    // 应用滑块值到选中元素
     function applySliderToElement() {
         if (!selectedElement) return;
         const x = parseFloat(document.getElementById('xPosSlider').value);
@@ -456,14 +499,16 @@
         document.getElementById('fontSizeVal').innerText = fontSize;
     }
 
-    // 滑块事件绑定
     document.getElementById('xPosSlider').addEventListener('input', applySliderToElement);
     document.getElementById('yPosSlider').addEventListener('input', applySliderToElement);
     document.getElementById('fontSizeSlider').addEventListener('input', applySliderToElement);
 
-    // ======================== 触摸拖拽 + 缩放 ========================
+    // ======================== 触摸拖拽 + 缩放 (模拟屏幕内) ========================
     function initTouchForElement(el) {
         if (!el) return;
+        el.removeEventListener('touchstart', onTouchStart);
+        el.removeEventListener('touchmove', onTouchMove);
+        el.removeEventListener('touchend', onTouchEnd);
         el.addEventListener('touchstart', onTouchStart, { passive: false });
         el.addEventListener('touchmove', onTouchMove, { passive: false });
         el.addEventListener('touchend', onTouchEnd);
@@ -473,11 +518,10 @@
         e.preventDefault();
         const touches = e.touches;
         if (touches.length === 1) {
-            // 开始拖拽
             selectedElement = e.currentTarget;
             updateSlidersFromElement(selectedElement);
             const rect = selectedElement.getBoundingClientRect();
-            const stageRect = document.getElementById('previewStage').getBoundingClientRect();
+            const stageRect = ipadScreen.getBoundingClientRect();
             const leftPercent = parseFloat(selectedElement.style.left);
             const topPercent = parseFloat(selectedElement.style.top);
             dragData = {
@@ -489,7 +533,6 @@
                 stageHeight: stageRect.height
             };
         } else if (touches.length === 2) {
-            // 开始缩放
             const tx1 = touches[0].clientX, ty1 = touches[0].clientY;
             const tx2 = touches[1].clientX, ty2 = touches[1].clientY;
             const distance = Math.hypot(tx2 - tx1, ty2 - ty1);
@@ -546,11 +589,9 @@
         pinchData = null;
     }
 
-    // 为所有可拖拽元素绑定触摸事件（每次切换模式后重新绑定）
     function bindAllTouchEvents() {
         const draggables = getCurrentDraggables();
         draggables.forEach(el => initTouchForElement(el));
-        // 点击选中（高亮）
         draggables.forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -561,11 +602,6 @@
     }
 
     // ======================== 模式切换 ========================
-    const singleLayout = document.getElementById('singleLayout');
-    const dualLayout = document.getElementById('dualLayout');
-    const tripleLayout = document.getElementById('tripleLayout');
-    const modeBtns = document.querySelectorAll('.mode-btn');
-
     function switchMode(mode) {
         currentMode = mode;
         singleLayout.classList.remove('active');
@@ -578,9 +614,7 @@
             if (btn.dataset.mode === mode) btn.classList.add('active');
             else btn.classList.remove('active');
         });
-        // 重新绑定触摸事件
         bindAllTouchEvents();
-        // 清空选中高亮
         getCurrentDraggables().forEach(d => d.style.border = 'none');
         selectedElement = null;
     }
@@ -589,20 +623,33 @@
         btn.addEventListener('click', () => switchMode(btn.dataset.mode));
     });
 
+    // 横竖屏切换 (仅切换预览方向，所有百分比位置无需改变，因为都是相对当前屏幕比例)
+    const rotateBtn = document.getElementById('rotateBtn');
+    rotateBtn.addEventListener('click', () => {
+        isLandscape = !isLandscape;
+        if (isLandscape) {
+            ipadScreen.classList.remove('portrait');
+            ipadScreen.classList.add('landscape');
+        } else {
+            ipadScreen.classList.remove('landscape');
+            ipadScreen.classList.add('portrait');
+        }
+        // 提示：布局百分比不会改变，因为坐标基于父容器百分比
+        showToast(`已切换为 ${isLandscape ? '横屏' : '竖屏'} 预览，调整后可导出`);
+        // 刷新触摸绑定 (由于屏幕大小变化，重新绑定确保拖拽区域正确)
+        bindAllTouchEvents();
+    });
+
     // ======================== 风格库 ========================
-    const flipStyles = [
-        "机械翻页钟","3D卡片翻转","纸质叠片","霓虹翻牌","玻璃毛玻璃","木制复古","工业金属","赛博朋克",
-        "做旧怀旧","极简白板","黑胶唱片","复古点阵","豪华真皮","未来透明","潮玩积木","日本和纸","哥特暗黑","波普撞色","水墨国风","蒸汽波"
-    ];
+    const flipStyles = ["机械翻页钟","3D卡片翻转","纸质叠片","霓虹翻牌","玻璃毛玻璃","木制复古","工业金属","赛博朋克","做旧怀旧","极简白板","黑胶唱片","复古点阵","豪华真皮","未来透明","潮玩积木","日本和纸","哥特暗黑","波普撞色","水墨国风","蒸汽波"];
     const flipGrid = document.getElementById('flipGrid');
     flipStyles.forEach(style => {
         const div = document.createElement('div');
         div.className = 'style-card';
-        div.innerHTML = `<div>🎴</div><div style="font-size:0.65rem;">${style}</div>`;
+        div.innerHTML = `<div>🎴</div><div style="font-size:0.6rem;">${style}</div>`;
         div.onclick = () => {
             document.querySelectorAll('#flipGrid .style-card').forEach(c => c.classList.remove('selected'));
             div.classList.add('selected');
-            // 简单模拟翻页效果
             document.querySelectorAll('.clock-text').forEach(el => {
                 el.style.transform = 'rotateX(0deg)';
                 setTimeout(() => el.style.transform = 'rotateX(180deg)', 50);
@@ -638,14 +685,13 @@
         fontGrid.appendChild(div);
     });
 
-    // 颜色主题实时预览（简单应用背景）
+    // 主题颜色实时预览
     const dayBg = document.getElementById('dayBg');
     const dayText = document.getElementById('dayText');
     const accentColor = document.getElementById('accentColor');
     function applyThemePreview() {
-        const stage = document.getElementById('previewStage');
-        stage.style.background = dayBg.value;
-        stage.style.color = dayText.value;
+        ipadScreen.style.background = dayBg.value;
+        ipadScreen.style.color = dayText.value;
         document.querySelectorAll('.clock-text').forEach(el => {
             el.style.background = `linear-gradient(135deg, ${accentColor.value}, ${dayText.value})`;
             el.style.webkitBackgroundClip = 'text';
@@ -658,30 +704,30 @@
     accentColor.addEventListener('input', applyThemePreview);
     applyThemePreview();
 
-    // ======================== 导出配置 ========================
+    // ======================== 导出配置 (适用于 iPad Air 2, 百分比通用) ========================
+    function getElementData(el, textSelector) {
+        if (!el) return null;
+        const left = el.style.left;
+        const top = el.style.top;
+        const textEl = el.querySelector(textSelector);
+        const fontSize = textEl ? window.getComputedStyle(textEl).fontSize : '48px';
+        return { left, top, fontSize };
+    }
+
     function getCurrentConfig() {
-        function getElementData(selector, textSelector) {
-            const el = document.querySelector(selector);
-            if (!el) return null;
-            const left = el.style.left;
-            const top = el.style.top;
-            const textEl = el.querySelector(textSelector);
-            const fontSize = textEl ? window.getComputedStyle(textEl).fontSize : '36px';
-            return { left, top, fontSize };
-        }
         const singleConfig = {
-            clock: getElementData('#singleLayout .draggable[data-element="clock"]', '.clock-text'),
-            date: getElementData('#singleLayout .draggable[data-element="date"]', '.date-text'),
-            weather: getElementData('#singleLayout .draggable[data-element="weather"]', '.weather-text')
+            clock: getElementData(document.querySelector('#singleLayout .draggable[data-element="clock"]'), '.clock-text'),
+            date: getElementData(document.querySelector('#singleLayout .draggable[data-element="date"]'), '.date-text'),
+            weather: getElementData(document.querySelector('#singleLayout .draggable[data-element="weather"]'), '.weather-text')
         };
-        const dualLeftClock = getElementData('#dualLayout #dualLeftPanel .draggable[data-element="clock"]', '.clock-text');
-        const dualLeftWeather = getElementData('#dualLayout #dualLeftPanel .draggable[data-element="weather"]', '.weather-text');
-        const dualRightClock = getElementData('#dualLayout #dualRightPanel .draggable[data-element="clock"]', '.clock-text');
-        const dualRightWeather = getElementData('#dualLayout #dualRightPanel .draggable[data-element="weather"]', '.weather-text');
-        const tripleLeftClock = getElementData('#tripleLayout #tripleLeftPanel .draggable[data-element="clock"]', '.clock-text');
-        const tripleLeftWeather = getElementData('#tripleLayout #tripleLeftPanel .draggable[data-element="weather"]', '.weather-text');
-        const tripleRightClock = getElementData('#tripleLayout #tripleRightPanel .draggable[data-element="clock"]', '.clock-text');
-        const tripleRightWeather = getElementData('#tripleLayout #tripleRightPanel .draggable[data-element="weather"]', '.weather-text');
+        const dualLeftClock = getElementData(document.querySelector('#dualLayout #dualLeftPanel .draggable[data-element="clock"]'), '.clock-text');
+        const dualLeftWeather = getElementData(document.querySelector('#dualLayout #dualLeftPanel .draggable[data-element="weather"]'), '.weather-text');
+        const dualRightClock = getElementData(document.querySelector('#dualLayout #dualRightPanel .draggable[data-element="clock"]'), '.clock-text');
+        const dualRightWeather = getElementData(document.querySelector('#dualLayout #dualRightPanel .draggable[data-element="weather"]'), '.weather-text');
+        const tripleLeftClock = getElementData(document.querySelector('#tripleLayout #tripleLeftPanel .draggable[data-element="clock"]'), '.clock-text');
+        const tripleLeftWeather = getElementData(document.querySelector('#tripleLayout #tripleLeftPanel .draggable[data-element="weather"]'), '.weather-text');
+        const tripleRightClock = getElementData(document.querySelector('#tripleLayout #tripleRightPanel .draggable[data-element="clock"]'), '.clock-text');
+        const tripleRightWeather = getElementData(document.querySelector('#tripleLayout #tripleRightPanel .draggable[data-element="weather"]'), '.weather-text');
 
         const config = {
             single: singleConfig,
@@ -700,7 +746,8 @@
                 nightText: document.getElementById('nightText').value,
                 accentColor: accentColor.value
             },
-            fontFamily: window.getComputedStyle(document.querySelector('.clock-text')).fontFamily
+            fontFamily: window.getComputedStyle(document.querySelector('.clock-text')).fontFamily,
+            note: "此配置适用于iPad Air 2，所有位置基于百分比，横竖屏通用"
         };
         return config;
     }
@@ -710,7 +757,7 @@
         const configStr = JSON.stringify(config, null, 2);
         document.getElementById('configOutput').innerHTML = configStr;
         navigator.clipboard.writeText(configStr);
-        showToast("✅ 配置已复制到剪贴板，请发给我！");
+        showToast("✅ 配置已导出，适用于 iPad Air 2，请发给我！");
     };
 
     function resetCurrentLayout() {
@@ -731,7 +778,7 @@
             document.querySelector('#tripleLayout #tripleRightPanel .draggable[data-element="weather"]').style.cssText = 'left:80%; top:15%;';
         }
         bindAllTouchEvents();
-        showToast("🔄 已重置当前模式布局");
+        showToast("🔄 已重置当前模式布局 (百分比位置)");
     }
     document.getElementById('resetBtn').onclick = resetCurrentLayout;
 
@@ -745,6 +792,7 @@
 
     // 初始化
     switchMode('single');
+    bindAllTouchEvents();
 </script>
 </body>
 </html>
