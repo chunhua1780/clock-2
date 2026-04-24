@@ -2,544 +2,349 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>飞行时钟 · 无限配置工坊</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>迪拜飞行时钟 · 智能三模式</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
-            background: #0a0e1a;
-            color: #ffffff;
-            font-family: -apple-system, 'SF Pro Display', sans-serif;
-            padding: 20px;
-            min-height: 100vh;
-        }
-        .container {
-            max-width: 700px;
-            margin: 0 auto;
-        }
-        h1 {
-            font-size: 1.8rem;
-            font-weight: 600;
-            color: #ffd966;
-            margin-bottom: 4px;
-        }
-        .sub {
-            font-size: 0.7rem;
-            color: #88aacc;
-            margin-bottom: 20px;
-        }
-        
-        /* 可拖拽预览区 */
-        .preview-stage {
-            background: linear-gradient(135deg, #0a0a2a, #1a2a4a);
-            border-radius: 48px;
-            padding: 40px 20px;
-            min-height: 400px;
-            position: relative;
-            margin-bottom: 24px;
-            transition: all 0.2s;
+            font-family: 'SF Pro Display', -apple-system, sans-serif;
+            height: 100vh;
+            width: 100vw;
             overflow: hidden;
-            cursor: crosshair;
+            transition: background-color 0.5s ease, color 0.3s ease;
         }
-        .draggable-element {
-            position: absolute;
-            cursor: move;
-            user-select: none;
-            transition: box-shadow 0.1s;
-            z-index: 10;
+        /* 主题变量会在JS中动态设置 */
+        .fullscreen-clock, .flight-mode, .mode-layout {
+            width: 100%;
+            height: 100%;
+            position: relative;
         }
-        .draggable-element.dragging {
-            opacity: 0.8;
-            z-index: 100;
+        .mode-container {
+            width: 100%;
+            height: 100%;
         }
-        .element-resize-handle {
-            position: absolute;
-            bottom: 0;
-            right: 0;
-            width: 16px;
-            height: 16px;
-            background: rgba(255,255,255,0.3);
-            border-radius: 8px;
-            cursor: nw-resize;
-            z-index: 20;
-        }
-        .resizing {
-            opacity: 0.7;
-        }
-        
-        /* 控制卡片 */
-        .section {
-            background: #11161f;
-            border-radius: 32px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid #2a3344;
-        }
-        .section-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #ffd966;
-            margin-bottom: 16px;
-        }
-        .control-row {
-            margin-bottom: 16px;
-        }
-        .control-label {
+        .hidden { display: none !important; }
+        /* 航班信息卡片样式 */
+        .flight-info-bar {
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(16px);
+            border-radius: 28px;
+            padding: 12px 20px;
+            margin: 12px;
+            font-size: 0.85rem;
             display: flex;
             justify-content: space-between;
-            font-size: 0.8rem;
-            margin-bottom: 6px;
-            color: #aabbdd;
+            align-items: center;
         }
-        input[type="range"] {
+        .dual-panel, .triple-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .dual-layout, .triple-layout {
+            display: flex;
+            height: 100%;
             width: 100%;
-            height: 4px;
-            -webkit-appearance: none;
-            background: #2a3344;
-            border-radius: 4px;
         }
-        input[type="range"]:focus {
-            outline: none;
+        .triple-layout {
+            flex-direction: column;
         }
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 18px;
-            height: 18px;
-            border-radius: 18px;
-            background: #ffaa44;
-            cursor: pointer;
+        .triple-top {
+            height: 30%;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
         }
-        input[type="color"] {
-            width: 100%;
-            height: 40px;
-            border: 1px solid #2a3344;
-            border-radius: 20px;
-            background: #1a1f2e;
-            cursor: pointer;
+        .triple-bottom {
+            flex: 1;
+            display: flex;
         }
-        select {
-            width: 100%;
-            padding: 12px;
-            background: #1a1f2e;
-            border: 1px solid #2a3344;
-            border-radius: 40px;
-            color: white;
-            font-size: 0.9rem;
-        }
-        .options-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-            gap: 10px;
-        }
-        .style-card {
-            background: #1a1f2e;
-            border-radius: 20px;
-            padding: 10px;
+        .clock-element {
+            position: absolute;
+            transform: translate(-50%, -50%);
             text-align: center;
-            cursor: pointer;
-            border: 2px solid transparent;
+            white-space: nowrap;
         }
-        .style-card.selected {
-            border-color: #ffaa44;
-        }
-        button {
-            width: 100%;
-            padding: 14px;
-            border: none;
-            border-radius: 40px;
-            font-weight: bold;
-            cursor: pointer;
-            margin-top: 12px;
-        }
-        .btn-primary {
-            background: #ffaa44;
-            color: #0a0e1a;
-        }
-        .btn-secondary {
-            background: #2a6faa;
-            color: white;
-        }
-        .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 20px;
-            right: 20px;
-            background: #ffaa44;
-            color: #0a0e1a;
-            text-align: center;
-            padding: 12px;
-            border-radius: 40px;
-            font-weight: bold;
-            z-index: 2000;
-            animation: fadeOut 2s ease forwards;
-        }
-        @keyframes fadeOut {
-            0% { opacity: 1; }
-            70% { opacity: 1; }
-            100% { opacity: 0; visibility: hidden; }
-        }
-        .config-output {
-            background: #1a1f2e;
-            border-radius: 20px;
-            padding: 12px;
-            font-size: 0.65rem;
+        .time-display {
+            font-weight: 700;
             font-family: monospace;
-            color: #aaffdd;
-            word-break: break-all;
-            margin-top: 16px;
-            max-height: 180px;
-            overflow-y: auto;
+            background: linear-gradient(135deg, #fff, #88aaff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .date-display, .weather-display {
+            opacity: 0.8;
         }
     </style>
 </head>
 <body>
-<div class="container">
-    <h1>🎨 无限风格工坊</h1>
-    <div class="sub">✨ 拖拽元素 · 自由调整位置/大小 · 一键导出配置</div>
-    
-    <!-- 可拖拽预览区 -->
-    <div class="preview-stage" id="previewStage">
-        <div class="draggable-element" id="clockElement" data-type="clock" style="top: 30%; left: 50%; transform: translate(-50%, -50%);">
-            <div class="preview-time" id="previewTime">12:34</div>
-            <div class="element-resize-handle"></div>
-        </div>
-        <div class="draggable-element" id="dateElement" data-type="date" style="top: 70%; left: 50%; transform: translate(-50%, -50%);">
-            <div class="preview-date" id="previewDate"></div>
-            <div class="element-resize-handle"></div>
-        </div>
-        <div class="draggable-element" id="weatherElement" data-type="weather" style="top: 15%; left: 85%; transform: translate(-50%, -50%);">
-            <div class="preview-weather" id="previewWeather">☀️ 32°C</div>
-            <div class="element-resize-handle"></div>
-        </div>
-    </div>
-    
-    <!-- 控制面板：尺寸/位置/颜色 -->
-    <div class="section">
-        <div class="section-title">📐 选中元素调节</div>
-        <div class="control-row">
-            <div class="control-label">字体大小 <span id="selectedFontSizeVal">36</span>px</div>
-            <input type="range" id="selectedFontSize" min="12" max="120" step="2" value="36">
-        </div>
-        <div class="control-row">
-            <div class="control-label">X 位置 (%) <span id="selectedLeftVal">50</span>%</div>
-            <input type="range" id="selectedLeft" min="0" max="100" step="1" value="50">
-        </div>
-        <div class="control-row">
-            <div class="control-label">Y 位置 (%) <span id="selectedTopVal">50</span>%</div>
-            <input type="range" id="selectedTop" min="0" max="100" step="1" value="50">
-        </div>
-    </div>
-    
-    <!-- 艺术字体/特效选择 -->
-    <div class="section">
-        <div class="section-title">🎨 艺术字体风格</div>
-        <div class="options-grid" id="fontStylesGrid"></div>
-    </div>
-    <div class="section">
-        <div class="section-title">✨ 动画特效</div>
-        <div class="options-grid" id="effectsGrid"></div>
-    </div>
-    
-    <!-- 全局颜色主题 -->
-    <div class="section">
-        <div class="section-title">🎨 全局颜色</div>
-        <div class="control-row">
-            <div class="control-label">白天背景色</div>
-            <input type="color" id="dayBg" value="#e8f0f5">
-        </div>
-        <div class="control-row">
-            <div class="control-label">白天文字色</div>
-            <input type="color" id="dayText" value="#1a2a3a">
-        </div>
-        <div class="control-row">
-            <div class="control-label">夜晚背景色</div>
-            <input type="color" id="nightBg" value="#0a0e1a">
-        </div>
-        <div class="control-row">
-            <div class="control-label">夜晚文字色</div>
-            <input type="color" id="nightText" value="#eef2f5">
-        </div>
-        <div class="control-row">
-            <div class="control-label">强调/渐变主色</div>
-            <input type="color" id="accentColor" value="#ffaa44">
-        </div>
-    </div>
-    
-    <button class="btn-primary" id="exportBtn">📤 导出配置 (一键保存并复制)</button>
-    <button class="btn-secondary" id="resetBtn">🔄 重置默认布局</button>
-    
-    <div class="config-output" id="configOutput">
-        调整参数满意后，点击「导出配置」即可生成完整样式配置
-    </div>
-</div>
-
+<div id="app"></div>
 <script>
-    // ============================================================
-    // 元素拖拽 & 缩放逻辑
-    // ============================================================
-    let selectedElement = null;
-    let isDragging = false;
-    let isResizing = false;
-    let startX, startY, startLeft, startTop, startWidth, startHeight;
-    
-    const elements = {
-        clock: document.getElementById('clockElement'),
-        date: document.getElementById('dateElement'),
-        weather: document.getElementById('weatherElement')
+    // ========== 默认配置（与工坊导出结构一致，您可替换为实际导出的JSON）==========
+    const DEFAULT_CONFIG = {
+        "single": {
+            "clock": { "left": "50%", "top": "35%", "fontSize": "48px" },
+            "date": { "left": "50%", "top": "75%", "fontSize": "16px" },
+            "weather": { "left": "85%", "top": "15%", "fontSize": "20px" }
+        },
+        "dual": {
+            "left": {
+                "clock": { "left": "50%", "top": "40%", "fontSize": "48px" },
+                "weather": { "left": "80%", "top": "15%", "fontSize": "20px" }
+            },
+            "right": {
+                "clock": { "left": "50%", "top": "40%", "fontSize": "48px" },
+                "weather": { "left": "80%", "top": "15%", "fontSize": "20px" }
+            }
+        },
+        "triple": {
+            "left": {
+                "clock": { "left": "50%", "top": "40%", "fontSize": "48px" },
+                "weather": { "left": "80%", "top": "15%", "fontSize": "20px" }
+            },
+            "right": {
+                "clock": { "left": "50%", "top": "40%", "fontSize": "48px" },
+                "weather": { "left": "80%", "top": "15%", "fontSize": "20px" }
+            }
+        },
+        "colors": {
+            "dayBg": "#e8f0f5",
+            "dayText": "#1a2a3a",
+            "nightBg": "#0a0e1a",
+            "nightText": "#eef2f5",
+            "accentColor": "#ffaa44"
+        },
+        "fontFamily": "'SF Pro Display', -apple-system, 'Helvetica Neue'"
     };
-    
-    // 实时更新时间/日期
-    function updateRealTime() {
-        let now = new Date();
-        let timeStr = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
-        let dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
-        document.getElementById('previewTime').innerText = timeStr;
-        document.getElementById('previewDate').innerText = dateStr;
+
+    // 尝试加载用户保存的配置
+    let userConfig = null;
+    try {
+        const saved = localStorage.getItem('clock_layout_config');
+        if (saved) userConfig = JSON.parse(saved);
+    } catch(e) {}
+    const CONFIG = userConfig || DEFAULT_CONFIG;
+
+    // 根据迪拜时间自动选择主题（白天/夜晚）
+    const DUBAI_TZ = "Asia/Dubai";
+    function getCurrentTheme() {
+        const now = new Date();
+        const hour = parseInt(now.toLocaleTimeString('en-US', { timeZone: DUBAI_TZ, hour: '2-digit', hour12: false }));
+        if (hour >= 6 && hour < 18) return 'day';
+        else if (hour >= 18 && hour < 20) return 'night';
+        else return 'darkNight';
     }
-    setInterval(updateRealTime, 1000);
-    updateRealTime();
-    
-    // 给所有元素添加拖拽和缩放事件
-    function bindDragAndResize(el) {
-        if (!el) return;
-        // 拖拽主体
-        el.addEventListener('mousedown', (e) => {
-            if (e.target.classList.contains('element-resize-handle')) return;
-            e.preventDefault();
-            selectedElement = el;
-            isDragging = true;
-            startX = e.clientX;
-            startY = e.clientY;
-            let left = parseFloat(el.style.left);
-            let top = parseFloat(el.style.top);
-            startLeft = isNaN(left) ? 50 : left;
-            startTop = isNaN(top) ? 50 : top;
-            el.classList.add('dragging');
-            updateSlidersFromElement(el);
-        });
-        // 缩放控制柄
-        const handle = el.querySelector('.element-resize-handle');
-        if (handle) {
-            handle.addEventListener('mousedown', (e) => {
-                e.stopPropagation();
-                e.preventDefault();
-                isResizing = true;
-                selectedElement = el;
-                startX = e.clientX;
-                startY = e.clientY;
-                let fontSize = parseInt(window.getComputedStyle(el.querySelector('.preview-time, .preview-date, .preview-weather')).fontSize);
-                startWidth = isNaN(fontSize) ? 36 : fontSize;
-                el.classList.add('resizing');
-            });
+    function applyTheme() {
+        const theme = getCurrentTheme();
+        let bg, text;
+        if (theme === 'day') {
+            bg = CONFIG.colors.dayBg;
+            text = CONFIG.colors.dayText;
+        } else if (theme === 'night') {
+            bg = CONFIG.colors.nightBg;
+            text = CONFIG.colors.nightText;
+        } else {
+            bg = CONFIG.colors.nightBg; // 深夜晚用夜晚背景，文字稍暗
+            text = CONFIG.colors.nightText;
         }
-    }
-    
-    document.addEventListener('mousemove', (e) => {
-        if (isDragging && selectedElement) {
-            let dx = e.clientX - startX;
-            let dy = e.clientY - startY;
-            let stageRect = document.getElementById('previewStage').getBoundingClientRect();
-            let newLeft = startLeft + (dx / stageRect.width) * 100;
-            let newTop = startTop + (dy / stageRect.height) * 100;
-            newLeft = Math.min(95, Math.max(5, newLeft));
-            newTop = Math.min(95, Math.max(5, newTop));
-            selectedElement.style.left = newLeft + '%';
-            selectedElement.style.top = newTop + '%';
-            updateSlidersFromElement(selectedElement);
-        }
-        if (isResizing && selectedElement) {
-            let dy = e.clientY - startY;
-            let newSize = startWidth + dy;
-            newSize = Math.min(120, Math.max(12, newSize));
-            let contentDiv = selectedElement.querySelector('.preview-time, .preview-date, .preview-weather');
-            if (contentDiv) {
-                contentDiv.style.fontSize = newSize + 'px';
-            }
-            document.getElementById('selectedFontSize').value = newSize;
-            document.getElementById('selectedFontSizeVal').innerText = newSize;
-        }
-    });
-    
-    document.addEventListener('mouseup', () => {
-        if (isDragging && selectedElement) {
-            selectedElement.classList.remove('dragging');
-            isDragging = false;
-            selectedElement = null;
-        }
-        if (isResizing && selectedElement) {
-            selectedElement.classList.remove('resizing');
-            isResizing = false;
-            selectedElement = null;
-        }
-    });
-    
-    function updateSlidersFromElement(el) {
-        if (!el) return;
-        let left = parseFloat(el.style.left);
-        let top = parseFloat(el.style.top);
-        if (!isNaN(left)) document.getElementById('selectedLeft').value = left;
-        if (!isNaN(top)) document.getElementById('selectedTop').value = top;
-        let contentDiv = el.querySelector('.preview-time, .preview-date, .preview-weather');
-        if (contentDiv) {
-            let fontSize = parseInt(window.getComputedStyle(contentDiv).fontSize);
-            if (!isNaN(fontSize)) {
-                document.getElementById('selectedFontSize').value = fontSize;
-                document.getElementById('selectedFontSizeVal').innerText = fontSize;
-            }
-        }
-        // 高亮选中元素边框
-        document.querySelectorAll('.draggable-element').forEach(e => e.style.border = 'none');
-        el.style.border = '2px solid #ffaa44';
-        el.style.borderRadius = '12px';
-    }
-    
-    // 绑定所有元素
-    for (let key in elements) {
-        bindDragAndResize(elements[key]);
-        elements[key].addEventListener('click', (e) => {
-            e.stopPropagation();
-            updateSlidersFromElement(elements[key]);
+        document.body.style.backgroundColor = bg;
+        document.body.style.color = text;
+        // 应用强调色到时间渐变
+        document.querySelectorAll('.time-display').forEach(el => {
+            el.style.background = `linear-gradient(135deg, ${CONFIG.colors.accentColor}, ${text})`;
+            el.style.webkitBackgroundClip = 'text';
+            el.style.backgroundClip = 'text';
+            el.style.color = 'transparent';
         });
     }
-    
-    // 滑块控制选中元素
-    const selectedFontSize = document.getElementById('selectedFontSize');
-    const selectedFontSizeVal = document.getElementById('selectedFontSizeVal');
-    const selectedLeft = document.getElementById('selectedLeft');
-    const selectedLeftVal = document.getElementById('selectedLeftVal');
-    const selectedTop = document.getElementById('selectedTop');
-    const selectedTopVal = document.getElementById('selectedTopVal');
-    
-    selectedFontSize.addEventListener('input', () => {
-        let val = selectedFontSize.value;
-        selectedFontSizeVal.innerText = val;
-        if (selectedElement) {
-            let contentDiv = selectedElement.querySelector('.preview-time, .preview-date, .preview-weather');
-            if (contentDiv) contentDiv.style.fontSize = val + 'px';
+
+    // 模拟航班状态（实际应从您的航班数据库读取）
+    let flightStatus = {
+        hasFlight: true,      // 是否有未来72小时航班
+        isFlying: false,      // 是否飞行中
+        flightInfo: { origin: "DXB", dest: "PVG", depTime: "14:30", arrTime: "22:45" }
+    };
+
+    // 实时时间更新函数
+    function updateTimes() {
+        const now = new Date();
+        const timeStr = now.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+        const dateStr = now.toLocaleDateString('en-US', { timeZone: DUBAI_TZ, weekday: 'long', month: 'long', day: 'numeric' });
+        // 更新所有时钟元素
+        document.querySelectorAll('.time-display').forEach(el => {
+            if (el.classList.contains('clock-number')) el.innerText = timeStr;
+        });
+        document.querySelectorAll('.date-display').forEach(el => {
+            el.innerText = dateStr;
+        });
+    }
+
+    // 根据配置创建元素
+    function createDraggableElement(parent, type, layoutConfig, mode) {
+        let config;
+        if (mode === 'single') {
+            config = layoutConfig[type];
+        } else if (mode === 'dual') {
+            const side = parent.id.includes('left') ? 'left' : 'right';
+            config = layoutConfig[side][type];
+        } else {
+            const side = parent.id.includes('left') ? 'left' : 'right';
+            config = layoutConfig[side][type];
+        }
+        if (!config) return;
+        const div = document.createElement('div');
+        div.className = 'clock-element';
+        div.style.left = config.left;
+        div.style.top = config.top;
+        div.style.transform = 'translate(-50%, -50%)';
+        if (type === 'clock') {
+            div.innerHTML = `<div class="time-display clock-number" style="font-size:${config.fontSize}; font-family:${CONFIG.fontFamily};">--:--</div>`;
+        } else if (type === 'date') {
+            div.innerHTML = `<div class="date-display" style="font-size:${config.fontSize};">--</div>`;
+        } else {
+            div.innerHTML = `<div class="weather-display" style="font-size:${config.fontSize};">☀️ 32°C</div>`;
+        }
+        parent.appendChild(div);
+        return div;
+    }
+
+    // 渲染单屏模式
+    function renderSingleMode() {
+        const container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'singleMode';
+        const layout = CONFIG.single;
+        createDraggableElement(container, 'clock', layout, 'single');
+        createDraggableElement(container, 'date', layout, 'single');
+        createDraggableElement(container, 'weather', layout, 'single');
+        return container;
+    }
+
+    // 渲染双屏模式（计划航班）
+    function renderDualMode() {
+        const container = document.createElement('div');
+        container.className = 'mode-container';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        // 顶部航班信息栏
+        const infoBar = document.createElement('div');
+        infoBar.className = 'flight-info-bar';
+        infoBar.innerHTML = `✈️ 计划航班 · ${flightStatus.flightInfo.origin} → ${flightStatus.flightInfo.dest} · 起飞 ${flightStatus.flightInfo.depTime} (当地) / ${flightStatus.flightInfo.depTime} (迪拜)`;
+        container.appendChild(infoBar);
+        // 左右分屏
+        const dualArea = document.createElement('div');
+        dualArea.style.display = 'flex';
+        dualArea.style.flex = '1';
+        dualArea.style.position = 'relative';
+        const leftPanel = document.createElement('div');
+        leftPanel.id = 'dualLeftPanel';
+        leftPanel.style.flex = '1';
+        leftPanel.style.position = 'relative';
+        const rightPanel = document.createElement('div');
+        rightPanel.id = 'dualRightPanel';
+        rightPanel.style.flex = '1';
+        rightPanel.style.position = 'relative';
+        dualArea.appendChild(leftPanel);
+        dualArea.appendChild(rightPanel);
+        container.appendChild(dualArea);
+        // 添加时钟和天气
+        createDraggableElement(leftPanel, 'clock', CONFIG.dual, 'dual');
+        createDraggableElement(leftPanel, 'weather', CONFIG.dual, 'dual');
+        createDraggableElement(rightPanel, 'clock', CONFIG.dual, 'dual');
+        createDraggableElement(rightPanel, 'weather', CONFIG.dual, 'dual');
+        // 为左侧右侧单独区分（天气内容可不同，这里简化）
+        return container;
+    }
+
+    // 渲染三屏模式（飞行中）
+    function renderTripleMode() {
+        const container = document.createElement('div');
+        container.className = 'mode-container';
+        container.style.display = 'flex';
+        container.style.flexDirection = 'column';
+        // 上部航班动态
+        const topBar = document.createElement('div');
+        topBar.className = 'flight-info-bar';
+        topBar.style.margin = '12px';
+        topBar.innerHTML = `✈️ 飞行中 · ${flightStatus.flightInfo.origin} → ${flightStatus.flightInfo.dest} · 已飞 2h30m · 剩余 3h20m · 预计落地 ${flightStatus.flightInfo.arrTime} (当地) / ${flightStatus.flightInfo.arrTime} (迪拜)`;
+        container.appendChild(topBar);
+        // 下部左右分屏
+        const bottomArea = document.createElement('div');
+        bottomArea.style.display = 'flex';
+        bottomArea.style.flex = '1';
+        bottomArea.style.position = 'relative';
+        const leftPanel = document.createElement('div');
+        leftPanel.id = 'tripleLeftPanel';
+        leftPanel.style.flex = '1';
+        leftPanel.style.position = 'relative';
+        const rightPanel = document.createElement('div');
+        rightPanel.id = 'tripleRightPanel';
+        rightPanel.style.flex = '1';
+        rightPanel.style.position = 'relative';
+        bottomArea.appendChild(leftPanel);
+        bottomArea.appendChild(rightPanel);
+        container.appendChild(bottomArea);
+        // 添加时钟和天气
+        createDraggableElement(leftPanel, 'clock', CONFIG.triple, 'triple');
+        createDraggableElement(leftPanel, 'weather', CONFIG.triple, 'triple');
+        createDraggableElement(rightPanel, 'clock', CONFIG.triple, 'triple');
+        createDraggableElement(rightPanel, 'weather', CONFIG.triple, 'triple');
+        return container;
+    }
+
+    // 根据状态切换模式
+    let currentMode = null;
+    function switchMode() {
+        let mode;
+        if (!flightStatus.hasFlight) mode = 'single';
+        else if (!flightStatus.isFlying) mode = 'dual';
+        else mode = 'triple';
+        if (currentMode === mode) return;
+        currentMode = mode;
+        const app = document.getElementById('app');
+        app.innerHTML = '';
+        let newContent;
+        if (mode === 'single') newContent = renderSingleMode();
+        else if (mode === 'dual') newContent = renderDualMode();
+        else newContent = renderTripleMode();
+        app.appendChild(newContent);
+        applyTheme();
+        updateTimes();
+        // 定时更新时间显示
+        if (window.timeInterval) clearInterval(window.timeInterval);
+        window.timeInterval = setInterval(() => {
+            updateTimes();
+            applyTheme(); // 每整点也会根据时间调整颜色
+        }, 60000);
+        updateTimes();
+    }
+
+    // 模拟航班状态检测（实际需连接您的航班数据库和实时状态）
+    function detectFlightStatus() {
+        // 这里应替换为真实逻辑，例如从 localStorage 读取航班DB、判断当前时间
+        // 示例：假设未来有航班，未起飞
+        flightStatus.hasFlight = true;
+        flightStatus.isFlying = false;
+        // 实际可根据您的 flightsDB 和当前时间设置
+        switchMode();
+    }
+
+    // 监听 localStorage 变化（配置更新时刷新）
+    window.addEventListener('storage', (e) => {
+        if (e.key === 'clock_layout_config') {
+            try {
+                userConfig = JSON.parse(e.newValue);
+                Object.assign(CONFIG, userConfig);
+                switchMode();
+            } catch(err) {}
         }
     });
-    selectedLeft.addEventListener('input', () => {
-        let val = selectedLeft.value;
-        selectedLeftVal.innerText = val;
-        if (selectedElement) selectedElement.style.left = val + '%';
-    });
-    selectedTop.addEventListener('input', () => {
-        let val = selectedTop.value;
-        selectedTopVal.innerText = val;
-        if (selectedElement) selectedElement.style.top = val + '%';
-    });
-    
-    // ============================================================
-    // 风格库
-    // ============================================================
-    const fontStyles = [
-        { name: "标准现代", fontFamily: "'SF Pro Display', -apple-system", weight: "600", letterSpacing: "4px" },
-        { name: "优雅衬线", fontFamily: "'Georgia', serif", weight: "600", letterSpacing: "2px" },
-        { name: "等宽代码", fontFamily: "'Courier New', monospace", weight: "700", letterSpacing: "6px" },
-        { name: "艺术手写", fontFamily: "'Dancing Script', cursive", weight: "600", letterSpacing: "1px" },
-        { name: "未来科技", fontFamily: "'Futura', sans-serif", weight: "600", letterSpacing: "8px" },
-        { name: "高端奢侈", fontFamily: "'Playfair Display', serif", weight: "700", letterSpacing: "4px" }
-    ];
-    const effects = [
-        { name: "无动画", class: "" },
-        { name: "淡入淡出", class: "fade" },
-        { name: "霓虹闪烁", class: "neon" },
-        { name: "机械翻页", class: "flap" }
-    ];
-    
-    const fontGrid = document.getElementById('fontStylesGrid');
-    fontStyles.forEach(style => {
-        let div = document.createElement('div');
-        div.className = 'style-card';
-        div.innerHTML = `<div style="font-family:${style.fontFamily}; font-weight:${style.weight};">12:34</div><div>${style.name}</div>`;
-        div.onclick = () => {
-            document.querySelectorAll('#fontStylesGrid .style-card').forEach(c => c.classList.remove('selected'));
-            div.classList.add('selected');
-            document.querySelectorAll('.preview-time').forEach(el => {
-                el.style.fontFamily = style.fontFamily;
-                el.style.fontWeight = style.weight;
-                el.style.letterSpacing = style.letterSpacing;
-            });
-        };
-        fontGrid.appendChild(div);
-    });
-    
-    const effectGrid = document.getElementById('effectsGrid');
-    effects.forEach(effect => {
-        let div = document.createElement('div');
-        div.className = 'style-card';
-        div.innerHTML = `<div>✨</div><div>${effect.name}</div>`;
-        div.onclick = () => {
-            document.querySelectorAll('#effectsGrid .style-card').forEach(c => c.classList.remove('selected'));
-            div.classList.add('selected');
-            if (effect.name === "霓虹闪烁") {
-                document.querySelectorAll('.preview-time').forEach(el => el.style.textShadow = '0 0 8px #ffaa44');
-            } else {
-                document.querySelectorAll('.preview-time').forEach(el => el.style.textShadow = 'none');
-            }
-        };
-        effectGrid.appendChild(div);
-    });
-    
-    // ============================================================
-    // 导出配置
-    // ============================================================
-    function getCurrentConfig() {
-        let clockEl = elements.clock;
-        let dateEl = elements.date;
-        let weatherEl = elements.weather;
-        let config = {
-            positions: {
-                clock: { left: clockEl.style.left, top: clockEl.style.top, fontSize: document.getElementById('selectedFontSize').value },
-                date: { left: dateEl.style.left, top: dateEl.style.top, fontSize: window.getComputedStyle(dateEl.querySelector('.preview-date')).fontSize },
-                weather: { left: weatherEl.style.left, top: weatherEl.style.top, fontSize: window.getComputedStyle(weatherEl.querySelector('.preview-weather')).fontSize }
-            },
-            colors: {
-                dayBg: document.getElementById('dayBg').value,
-                dayText: document.getElementById('dayText').value,
-                nightBg: document.getElementById('nightBg').value,
-                nightText: document.getElementById('nightText').value,
-                accentColor: document.getElementById('accentColor').value
-            },
-            fontFamily: window.getComputedStyle(document.querySelector('.preview-time')).fontFamily,
-            effect: "标准"
-        };
-        return config;
-    }
-    
-    document.getElementById('exportBtn').onclick = () => {
-        let config = getCurrentConfig();
-        let configStr = JSON.stringify(config, null, 2);
-        document.getElementById('configOutput').innerHTML = configStr;
-        navigator.clipboard.writeText(configStr);
-        showToast("✅ 配置已复制到剪贴板，请发给我！");
-    };
-    
-    document.getElementById('resetBtn').onclick = () => {
-        elements.clock.style.left = '50%';
-        elements.clock.style.top = '30%';
-        elements.date.style.left = '50%';
-        elements.date.style.top = '70%';
-        elements.weather.style.left = '85%';
-        elements.weather.style.top = '15%';
-        document.getElementById('selectedFontSize').value = '36';
-        document.querySelectorAll('.preview-time').forEach(el => el.style.fontSize = '36px');
-        document.querySelectorAll('.preview-date').forEach(el => el.style.fontSize = '16px');
-        document.querySelectorAll('.preview-weather').forEach(el => el.style.fontSize = '20px');
-        showToast("🔄 已重置默认布局");
-    };
-    
-    function showToast(msg) {
-        let toast = document.createElement('div');
-        toast.className = 'toast';
-        toast.innerText = msg;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.remove(), 2000);
-    }
+
+    detectFlightStatus();
+    // 每5分钟重新检测航班状态
+    setInterval(detectFlightStatus, 300000);
 </script>
 </body>
 </html>
