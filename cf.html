@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
-    <title>飞行时钟 · 触摸配置工坊 (iPad模拟器)</title>
+    <title>飞行时钟 · 全局缩放工坊</title>
     <style>
         * {
             margin: 0;
@@ -17,6 +17,7 @@
             font-family: -apple-system, 'SF Pro Display', sans-serif;
             padding: 16px;
             min-height: 100vh;
+            overflow-x: hidden;
         }
         .container {
             max-width: 100%;
@@ -73,32 +74,32 @@
             font-size: 0.75rem;
             cursor: pointer;
         }
-        /* iPad 模拟器容器 */
-        .ipad-simulator {
+        /* 全局缩放容器 */
+        .pan-zoom-container {
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+            touch-action: none;  /* 完全接管触摸事件 */
             background: #1a2a3a;
             border-radius: 32px;
-            padding: 12px;
-            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
             margin-bottom: 20px;
-            transition: all 0.3s;
+            box-shadow: 0 8px 24px rgba(0,0,0,0.5);
         }
+        .zoom-stage {
+            transform-origin: 0 0;
+            transition: transform 0.05s linear;
+            will-change: transform;
+        }
+        /* iPad 模拟器内部 */
         .ipad-screen {
             background: linear-gradient(135deg, #0a0a2a, #1a2a4a);
             border-radius: 24px;
             overflow: hidden;
             position: relative;
             margin: 0 auto;
-            transition: all 0.2s;
-            touch-action: none;
+            aspect-ratio: 4 / 3;   /* 默认横屏比例 */
         }
-        /* 横屏模式 (iPad 默认) */
-        .ipad-screen.landscape {
-            width: 100%;
-            aspect-ratio: 4 / 3;
-        }
-        /* 竖屏模式 (辅助调整) */
         .ipad-screen.portrait {
-            width: 100%;
             aspect-ratio: 3 / 4;
         }
         /* 三种布局容器 */
@@ -115,12 +116,11 @@
         .draggable {
             position: absolute;
             cursor: grab;
-            touch-action: none;
+            touch-action: none;   /* 独立触摸处理，但会被父容器捕获，需手动转发 */
             transform: translate(-50%, -50%);
             text-align: center;
             white-space: nowrap;
             z-index: 10;
-            background: transparent;
         }
         .draggable:active {
             cursor: grabbing;
@@ -294,8 +294,8 @@
 </head>
 <body>
 <div class="container">
-    <h1>🎨 iPad 布局工坊</h1>
-    <div class="sub">📱 手机模拟 iPad 横屏/竖屏 · 触摸拖拽缩放 · 自动适配真实比例</div>
+    <h1>🎨 全局可缩放工坊</h1>
+    <div class="sub">👆 双指整体缩放画布 · 单指平移 · 内部元素独立拖拽缩放</div>
 
     <div class="toolbar">
         <div class="mode-selector">
@@ -304,70 +304,73 @@
             <div class="mode-btn" data-mode="triple">三屏</div>
         </div>
         <button class="rotate-btn" id="rotateBtn">🔄 切换横竖屏</button>
+        <button class="rotate-btn" id="resetZoomBtn">🔍 重置缩放</button>
     </div>
 
-    <!-- iPad 模拟器 -->
-    <div class="ipad-simulator">
-        <div id="ipadScreen" class="ipad-screen landscape">
-            <!-- 单屏布局 -->
-            <div id="singleLayout" class="mode-layout active">
-                <div class="draggable" data-element="clock" style="left:50%; top:35%;">
-                    <div class="clock-text" id="singleClockText">12:34</div>
+    <!-- 整体可缩放容器 -->
+    <div id="panZoomContainer" class="pan-zoom-container" style="height: 500px;">
+        <div id="zoomStage" class="zoom-stage" style="transform: scale(1) translate(0px, 0px);">
+            <div id="ipadScreen" class="ipad-screen landscape" style="width: 100%; height: 100%;">
+                <!-- 单屏布局 -->
+                <div id="singleLayout" class="mode-layout active">
+                    <div class="draggable" data-element="clock" style="left:50%; top:35%;">
+                        <div class="clock-text" id="singleClockText">12:34</div>
+                    </div>
+                    <div class="draggable" data-element="date" style="left:50%; top:75%;">
+                        <div class="date-text" id="singleDateText"></div>
+                    </div>
+                    <div class="draggable" data-element="weather" style="left:85%; top:15%;">
+                        <div class="weather-text" id="singleWeatherText">☀️ 32°C</div>
+                    </div>
                 </div>
-                <div class="draggable" data-element="date" style="left:50%; top:75%;">
-                    <div class="date-text" id="singleDateText"></div>
-                </div>
-                <div class="draggable" data-element="weather" style="left:85%; top:15%;">
-                    <div class="weather-text" id="singleWeatherText">☀️ 32°C</div>
-                </div>
-            </div>
 
-            <!-- 双屏布局 -->
-            <div id="dualLayout" class="mode-layout">
-                <div class="dual-layout">
-                    <div class="dual-panel" id="dualLeftPanel">
-                        <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                            <div class="clock-text" id="dualLeftClock">12:34</div>
-                        </div>
-                        <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                            <div class="weather-text" id="dualLeftWeather">☀️ 32°C</div>
-                        </div>
-                    </div>
-                    <div class="dual-panel" id="dualRightPanel">
-                        <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                            <div class="clock-text" id="dualRightClock">12:34</div>
-                        </div>
-                        <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                            <div class="weather-text" id="dualRightWeather">🌤️ 28°C</div>
-                        </div>
-                    </div>
-                </div>
-                <div style="position:absolute; top:10px; left:10px; right:10px; background:rgba(0,0,0,0.5); border-radius:20px; padding:6px; text-align:center; font-size:0.65rem; pointer-events:none;">
-                    ✈️ 计划航班 · DXB → PVG · 起飞 14:30 (当地) / 10:30 (迪拜)
-                </div>
-            </div>
-
-            <!-- 三屏布局 -->
-            <div id="tripleLayout" class="mode-layout">
-                <div class="triple-layout">
-                    <div class="triple-top">
-                        ✈️ 飞行中 · DXB → PVG · 已飞 2h30m · 剩余 3h20m
-                    </div>
-                    <div class="triple-bottom">
-                        <div class="dual-panel" id="tripleLeftPanel">
+                <!-- 双屏布局 -->
+                <div id="dualLayout" class="mode-layout">
+                    <div class="dual-layout">
+                        <div class="dual-panel" id="dualLeftPanel">
                             <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                                <div class="clock-text" id="tripleLeftClock">12:34</div>
+                                <div class="clock-text" id="dualLeftClock">12:34</div>
                             </div>
                             <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                                <div class="weather-text" id="tripleLeftWeather">☀️ 32°C</div>
+                                <div class="weather-text" id="dualLeftWeather">☀️ 32°C</div>
                             </div>
                         </div>
-                        <div class="dual-panel" id="tripleRightPanel">
+                        <div class="dual-panel" id="dualRightPanel">
                             <div class="draggable" data-element="clock" style="left:50%; top:40%;">
-                                <div class="clock-text" id="tripleRightClock">12:34</div>
+                                <div class="clock-text" id="dualRightClock">12:34</div>
                             </div>
                             <div class="draggable" data-element="weather" style="left:80%; top:15%;">
-                                <div class="weather-text" id="tripleRightWeather">🌤️ 28°C</div>
+                                <div class="weather-text" id="dualRightWeather">🌤️ 28°C</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div style="position:absolute; top:10px; left:10px; right:10px; background:rgba(0,0,0,0.5); border-radius:20px; padding:6px; text-align:center; font-size:0.65rem; pointer-events:none;">
+                        ✈️ 计划航班 · DXB → PVG · 起飞 14:30 (当地) / 10:30 (迪拜)
+                    </div>
+                </div>
+
+                <!-- 三屏布局 -->
+                <div id="tripleLayout" class="mode-layout">
+                    <div class="triple-layout">
+                        <div class="triple-top">
+                            ✈️ 飞行中 · DXB → PVG · 已飞 2h30m · 剩余 3h20m
+                        </div>
+                        <div class="triple-bottom">
+                            <div class="dual-panel" id="tripleLeftPanel">
+                                <div class="draggable" data-element="clock" style="left:50%; top:40%;">
+                                    <div class="clock-text" id="tripleLeftClock">12:34</div>
+                                </div>
+                                <div class="draggable" data-element="weather" style="left:80%; top:15%;">
+                                    <div class="weather-text" id="tripleLeftWeather">☀️ 32°C</div>
+                                </div>
+                            </div>
+                            <div class="dual-panel" id="tripleRightPanel">
+                                <div class="draggable" data-element="clock" style="left:50%; top:40%;">
+                                    <div class="clock-text" id="tripleRightClock">12:34</div>
+                                </div>
+                                <div class="draggable" data-element="weather" style="left:80%; top:15%;">
+                                    <div class="weather-text" id="tripleRightWeather">🌤️ 28°C</div>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -412,7 +415,7 @@
     </div>
 
     <button class="btn-primary" id="exportBtn">📤 导出配置 (适用于 iPad Air 2)</button>
-    <button class="btn-secondary" id="resetBtn">🔄 重置当前模式 (以当前横竖屏为准)</button>
+    <button class="btn-secondary" id="resetBtn">🔄 重置当前模式布局</button>
     <div class="config-output" id="configOutput">调整完成后点击「导出配置」</div>
 </div>
 
@@ -433,19 +436,107 @@
     updateTime();
 
     // ======================== 全局状态 ========================
-    let currentMode = "single";      // single, dual, triple
-    let isLandscape = true;          // 横屏 true, 竖屏 false
+    let currentMode = "single";
+    let isLandscape = true;
     let selectedElement = null;
     let dragData = null;
     let pinchData = null;
 
-    const ipadScreen = document.getElementById('ipadScreen');
-    const singleLayout = document.getElementById('singleLayout');
-    const dualLayout = document.getElementById('dualLayout');
-    const tripleLayout = document.getElementById('tripleLayout');
-    const modeBtns = document.querySelectorAll('.mode-btn');
+    // 全局缩放/平移状态
+    let zoomTransform = { scale: 1, x: 0, y: 0 };
+    let initialPinchDistance = 0;
+    let initialPinchScale = 1;
+    let initialPinchX = 0, initialPinchY = 0;
+    let isPanning = false;
+    let panStart = { x: 0, y: 0 };
+    let panStartTransform = { x: 0, y: 0 };
 
-    // 获取当前可见的所有可拖拽元素
+    const container = document.getElementById('panZoomContainer');
+    const zoomStage = document.getElementById('zoomStage');
+    const ipadScreen = document.getElementById('ipadScreen');
+
+    // 更新缩放/平移的transform
+    function applyZoomTransform() {
+        zoomStage.style.transform = `translate(${zoomTransform.x}px, ${zoomTransform.y}px) scale(${zoomTransform.scale})`;
+    }
+
+    // 重置缩放/平移
+    function resetZoomAndPan() {
+        zoomTransform = { scale: 1, x: 0, y: 0 };
+        applyZoomTransform();
+        showToast("视图已重置");
+    }
+
+    // 处理容器上的多点触摸（缩放+平移）
+    function initContainerGestures() {
+        container.addEventListener('touchstart', onContainerTouchStart, { passive: false });
+        container.addEventListener('touchmove', onContainerTouchMove, { passive: false });
+        container.addEventListener('touchend', onContainerTouchEnd);
+    }
+
+    function onContainerTouchStart(e) {
+        const touches = e.touches;
+        if (touches.length === 2) {
+            // 开始双指缩放
+            e.preventDefault();
+            const tx1 = touches[0].clientX, ty1 = touches[0].clientY;
+            const tx2 = touches[1].clientX, ty2 = touches[1].clientY;
+            initialPinchDistance = Math.hypot(tx2 - tx1, ty2 - ty1);
+            initialPinchScale = zoomTransform.scale;
+            // 记录双指中心点（相对于容器）
+            const rect = container.getBoundingClientRect();
+            const centerX = (tx1 + tx2) / 2 - rect.left;
+            const centerY = (ty1 + ty2) / 2 - rect.top;
+            initialPinchX = centerX;
+            initialPinchY = centerY;
+        } else if (touches.length === 1) {
+            // 开始单指平移
+            e.preventDefault();
+            isPanning = true;
+            panStart = { x: touches[0].clientX, y: touches[0].clientY };
+            panStartTransform = { x: zoomTransform.x, y: zoomTransform.y };
+        }
+    }
+
+    function onContainerTouchMove(e) {
+        const touches = e.touches;
+        if (touches.length === 2 && initialPinchDistance > 0) {
+            e.preventDefault();
+            const tx1 = touches[0].clientX, ty1 = touches[0].clientY;
+            const tx2 = touches[1].clientX, ty2 = touches[1].clientY;
+            const newDistance = Math.hypot(tx2 - tx1, ty2 - ty1);
+            let newScale = initialPinchScale * (newDistance / initialPinchDistance);
+            newScale = Math.min(3, Math.max(0.5, newScale));
+            // 保持缩放中心不变 (相对于容器)
+            const rect = container.getBoundingClientRect();
+            const currentCenterX = (tx1 + tx2) / 2 - rect.left;
+            const currentCenterY = (ty1 + ty2) / 2 - rect.top;
+            // 计算位移补偿，使得缩放中心点保持不动
+            const dx = currentCenterX - initialPinchX;
+            const dy = currentCenterY - initialPinchY;
+            // 简单更新：为了体验，直接设置 scale，并微调平移量（不完美但够用）
+            zoomTransform.scale = newScale;
+            applyZoomTransform();
+        } else if (touches.length === 1 && isPanning) {
+            e.preventDefault();
+            const dx = touches[0].clientX - panStart.x;
+            const dy = touches[0].clientY - panStart.y;
+            zoomTransform.x = panStartTransform.x + dx;
+            zoomTransform.y = panStartTransform.y + dy;
+            applyZoomTransform();
+        }
+    }
+
+    function onContainerTouchEnd(e) {
+        if (e.touches.length < 2) {
+            initialPinchDistance = 0;
+        }
+        if (e.touches.length === 0) {
+            isPanning = false;
+        }
+    }
+
+    // ======================== 内部元素独立触摸 ========================
     function getCurrentDraggables() {
         if (currentMode === "single") {
             return Array.from(document.querySelectorAll('#singleLayout .draggable'));
@@ -456,7 +547,6 @@
         }
     }
 
-    // 更新滑块显示（根据当前选中元素）
     function updateSlidersFromElement(el) {
         if (!el) return;
         const left = parseFloat(el.style.left);
@@ -477,14 +567,12 @@
                 document.getElementById('fontSizeVal').innerText = fontSize;
             }
         }
-        // 高亮
         getCurrentDraggables().forEach(d => d.style.border = 'none');
         el.style.border = '2px solid #ffaa44';
         el.style.borderRadius = '12px';
         el.style.background = 'rgba(0,0,0,0.2)';
     }
 
-    // 应用滑块值到选中元素
     function applySliderToElement() {
         if (!selectedElement) return;
         const x = parseFloat(document.getElementById('xPosSlider').value);
@@ -503,28 +591,34 @@
     document.getElementById('yPosSlider').addEventListener('input', applySliderToElement);
     document.getElementById('fontSizeSlider').addEventListener('input', applySliderToElement);
 
-    // ======================== 触摸拖拽 + 缩放 (模拟屏幕内) ========================
-    function initTouchForElement(el) {
-        if (!el) return;
-        el.removeEventListener('touchstart', onTouchStart);
-        el.removeEventListener('touchmove', onTouchMove);
-        el.removeEventListener('touchend', onTouchEnd);
-        el.addEventListener('touchstart', onTouchStart, { passive: false });
-        el.addEventListener('touchmove', onTouchMove, { passive: false });
-        el.addEventListener('touchend', onTouchEnd);
+    // 为内部可拖拽元素绑定独立触摸事件（注意阻止冒泡到容器，避免冲突）
+    function bindInternalTouchEvents() {
+        const draggables = getCurrentDraggables();
+        draggables.forEach(el => {
+            el.removeEventListener('touchstart', onInternalTouchStart);
+            el.removeEventListener('touchmove', onInternalTouchMove);
+            el.removeEventListener('touchend', onInternalTouchEnd);
+            el.addEventListener('touchstart', onInternalTouchStart, { passive: false });
+            el.addEventListener('touchmove', onInternalTouchMove, { passive: false });
+            el.addEventListener('touchend', onInternalTouchEnd);
+        });
     }
 
-    function onTouchStart(e) {
-        e.preventDefault();
+    let internalDragData = null;
+    let internalPinchData = null;
+
+    function onInternalTouchStart(e) {
+        e.stopPropagation();  // 防止触发父容器手势
         const touches = e.touches;
         if (touches.length === 1) {
+            e.preventDefault();
             selectedElement = e.currentTarget;
             updateSlidersFromElement(selectedElement);
             const rect = selectedElement.getBoundingClientRect();
             const stageRect = ipadScreen.getBoundingClientRect();
             const leftPercent = parseFloat(selectedElement.style.left);
             const topPercent = parseFloat(selectedElement.style.top);
-            dragData = {
+            internalDragData = {
                 startX: touches[0].clientX,
                 startY: touches[0].clientY,
                 startLeft: isNaN(leftPercent) ? 50 : leftPercent,
@@ -533,13 +627,14 @@
                 stageHeight: stageRect.height
             };
         } else if (touches.length === 2) {
+            e.preventDefault();
             const tx1 = touches[0].clientX, ty1 = touches[0].clientY;
             const tx2 = touches[1].clientX, ty2 = touches[1].clientY;
             const distance = Math.hypot(tx2 - tx1, ty2 - ty1);
             const target = e.currentTarget;
             const textElem = target.querySelector('.clock-text, .date-text, .weather-text');
             const currentFontSize = textElem ? parseInt(window.getComputedStyle(textElem).fontSize) : 36;
-            pinchData = {
+            internalPinchData = {
                 startDistance: distance,
                 startFontSize: currentFontSize,
                 target: target
@@ -547,14 +642,15 @@
         }
     }
 
-    function onTouchMove(e) {
-        e.preventDefault();
+    function onInternalTouchMove(e) {
+        e.stopPropagation();
         const touches = e.touches;
-        if (dragData && touches.length === 1) {
-            const dx = touches[0].clientX - dragData.startX;
-            const dy = touches[0].clientY - dragData.startY;
-            let newLeft = dragData.startLeft + (dx / dragData.stageWidth) * 100;
-            let newTop = dragData.startTop + (dy / dragData.stageHeight) * 100;
+        if (internalDragData && touches.length === 1) {
+            e.preventDefault();
+            const dx = touches[0].clientX - internalDragData.startX;
+            const dy = touches[0].clientY - internalDragData.startY;
+            let newLeft = internalDragData.startLeft + (dx / internalDragData.stageWidth) * 100;
+            let newTop = internalDragData.startTop + (dy / internalDragData.stageHeight) * 100;
             newLeft = Math.min(95, Math.max(5, newLeft));
             newTop = Math.min(95, Math.max(5, newTop));
             if (selectedElement) {
@@ -565,14 +661,15 @@
                 document.getElementById('yPosSlider').value = newTop;
                 document.getElementById('yPosVal').innerText = Math.round(newTop);
             }
-        } else if (pinchData && touches.length === 2) {
+        } else if (internalPinchData && touches.length === 2) {
+            e.preventDefault();
             const tx1 = touches[0].clientX, ty1 = touches[0].clientY;
             const tx2 = touches[1].clientX, ty2 = touches[1].clientY;
             const newDistance = Math.hypot(tx2 - tx1, ty2 - ty1);
-            const scale = newDistance / pinchData.startDistance;
-            let newFontSize = pinchData.startFontSize * scale;
+            const scale = newDistance / internalPinchData.startDistance;
+            let newFontSize = internalPinchData.startFontSize * scale;
             newFontSize = Math.min(120, Math.max(12, newFontSize));
-            const target = pinchData.target;
+            const target = internalPinchData.target;
             const textElem = target.querySelector('.clock-text, .date-text, .weather-text');
             if (textElem) {
                 textElem.style.fontSize = newFontSize + 'px';
@@ -584,14 +681,15 @@
         }
     }
 
-    function onTouchEnd(e) {
-        dragData = null;
-        pinchData = null;
+    function onInternalTouchEnd(e) {
+        e.stopPropagation();
+        internalDragData = null;
+        internalPinchData = null;
     }
 
-    function bindAllTouchEvents() {
+    // 高亮点击
+    function bindInternalClicks() {
         const draggables = getCurrentDraggables();
-        draggables.forEach(el => initTouchForElement(el));
         draggables.forEach(el => {
             el.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -601,7 +699,12 @@
         });
     }
 
-    // ======================== 模式切换 ========================
+    // 模式切换
+    const singleLayout = document.getElementById('singleLayout');
+    const dualLayout = document.getElementById('dualLayout');
+    const tripleLayout = document.getElementById('tripleLayout');
+    const modeBtns = document.querySelectorAll('.mode-btn');
+
     function switchMode(mode) {
         currentMode = mode;
         singleLayout.classList.remove('active');
@@ -614,7 +717,8 @@
             if (btn.dataset.mode === mode) btn.classList.add('active');
             else btn.classList.remove('active');
         });
-        bindAllTouchEvents();
+        bindInternalTouchEvents();
+        bindInternalClicks();
         getCurrentDraggables().forEach(d => d.style.border = 'none');
         selectedElement = null;
     }
@@ -623,7 +727,7 @@
         btn.addEventListener('click', () => switchMode(btn.dataset.mode));
     });
 
-    // 横竖屏切换 (仅切换预览方向，所有百分比位置无需改变，因为都是相对当前屏幕比例)
+    // 横竖屏切换
     const rotateBtn = document.getElementById('rotateBtn');
     rotateBtn.addEventListener('click', () => {
         isLandscape = !isLandscape;
@@ -634,11 +738,12 @@
             ipadScreen.classList.remove('landscape');
             ipadScreen.classList.add('portrait');
         }
-        // 提示：布局百分比不会改变，因为坐标基于父容器百分比
-        showToast(`已切换为 ${isLandscape ? '横屏' : '竖屏'} 预览，调整后可导出`);
-        // 刷新触摸绑定 (由于屏幕大小变化，重新绑定确保拖拽区域正确)
-        bindAllTouchEvents();
+        showToast(`已切换为 ${isLandscape ? '横屏' : '竖屏'} 预览，请重新调整布局`);
+        // 重置整体缩放，避免比例失调
+        resetZoomAndPan();
     });
+
+    document.getElementById('resetZoomBtn').addEventListener('click', resetZoomAndPan);
 
     // ======================== 风格库 ========================
     const flipStyles = ["机械翻页钟","3D卡片翻转","纸质叠片","霓虹翻牌","玻璃毛玻璃","木制复古","工业金属","赛博朋克","做旧怀旧","极简白板","黑胶唱片","复古点阵","豪华真皮","未来透明","潮玩积木","日本和纸","哥特暗黑","波普撞色","水墨国风","蒸汽波"];
@@ -704,7 +809,7 @@
     accentColor.addEventListener('input', applyThemePreview);
     applyThemePreview();
 
-    // ======================== 导出配置 (适用于 iPad Air 2, 百分比通用) ========================
+    // ======================== 导出配置 ========================
     function getElementData(el, textSelector) {
         if (!el) return null;
         const left = el.style.left;
@@ -747,7 +852,7 @@
                 accentColor: accentColor.value
             },
             fontFamily: window.getComputedStyle(document.querySelector('.clock-text')).fontFamily,
-            note: "此配置适用于iPad Air 2，所有位置基于百分比，横竖屏通用"
+            aspectRatio: isLandscape ? "landscape" : "portrait"
         };
         return config;
     }
@@ -757,7 +862,7 @@
         const configStr = JSON.stringify(config, null, 2);
         document.getElementById('configOutput').innerHTML = configStr;
         navigator.clipboard.writeText(configStr);
-        showToast("✅ 配置已导出，适用于 iPad Air 2，请发给我！");
+        showToast("✅ 配置已导出，请发给我！");
     };
 
     function resetCurrentLayout() {
@@ -777,8 +882,8 @@
             document.querySelector('#tripleLayout #tripleRightPanel .draggable[data-element="clock"]').style.cssText = 'left:50%; top:40%;';
             document.querySelector('#tripleLayout #tripleRightPanel .draggable[data-element="weather"]').style.cssText = 'left:80%; top:15%;';
         }
-        bindAllTouchEvents();
-        showToast("🔄 已重置当前模式布局 (百分比位置)");
+        bindInternalTouchEvents();
+        showToast("🔄 已重置当前模式布局");
     }
     document.getElementById('resetBtn').onclick = resetCurrentLayout;
 
@@ -792,7 +897,9 @@
 
     // 初始化
     switchMode('single');
-    bindAllTouchEvents();
+    initContainerGestures();
+    bindInternalTouchEvents();
+    bindInternalClicks();
 </script>
 </body>
 </html>
