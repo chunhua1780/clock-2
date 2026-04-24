@@ -3,147 +3,66 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>飞行时钟 · 智能集成版</title>
-    <style id="dynamic-theme">
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        body { background: #000; color: #fff; font-family: 'SF Pro Display', -apple-system, sans-serif; height: 100vh; width: 100vw; overflow: hidden; transition: all 0.5s; }
-        .mode-container { position: relative; width: 100%; height: 100%; }
-        .dual-layout { display: flex; width: 100%; height: 100%; }
-        .dual-panel { flex: 1; position: relative; border-right: 1px solid rgba(255,255,255,0.1); display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .dual-panel:last-child { border-right: none; }
-        
-        .clock-element { text-align: center; }
-        .clock-text { font-weight: 700; font-family: monospace; background: linear-gradient(135deg, #fff, #88aaff); -webkit-background-clip: text; background-clip: text; color: transparent; }
-        
-        .flight-bar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); width: 90%; background: rgba(0,0,0,0.5); backdrop-filter: blur(15px); border-radius: 30px; padding: 10px; font-size: 0.8rem; text-align: center; z-index: 100; border: 1px solid rgba(255,255,255,0.1); color: #ffaa44; }
-        .pane-label { font-size: 1.2vw; opacity: 0.5; letter-spacing: 4px; margin-bottom: 10px; }
-        .weather-text { font-size: 2vw; margin-top: 15px; }
+    <title>飞行时钟</title>
+    <style>
+        body { background: #000; color: #fff; font-family: monospace; height: 100vh; overflow: hidden; transition: all 1s; }
+        .layout { width: 100%; height: 100%; position: relative; }
+        .clock-text { font-weight: bold; position: absolute; transform: translate(-50%, -50%); }
+        .flight-bar { position: absolute; top: 20px; width: 100%; text-align: center; color: #ffaa44; font-size: 20px; }
+        .dual-container { display: flex; width: 100%; height: 100%; }
+        .panel { flex: 1; position: relative; border-right: 1px solid #333; }
     </style>
 </head>
 <body>
-<div id="app"></div>
+    <div id="display"></div>
 
 <script>
-    const GIST_ID = localStorage.getItem('gist_id') || "6b51ae2b894903de0227eaec5e0ce842";
-    const DUBAI_TZ = "Asia/Dubai";
-
-    const airportDB = {
-        "DXB": { city: "迪拜", tz: "Asia/Dubai", lat: 25.25, lon: 55.36 },
-        "DSS": { city: "达喀尔", tz: "Africa/Dakar", lat: 14.67, lon: -17.07 },
-        "PVG": { city: "上海", tz: "Asia/Shanghai", lat: 31.14, lon: 121.80 },
-        "LHR": { city: "伦敦", tz: "Europe/London", lat: 51.47, lon: -0.45 }
-    };
-
-    const themeColors = [
-        { bg: "#0a0a2a", text: "#fff", accent: "#88aaff" }, // S1
-        { bg: "#000000", text: "#00ff00", accent: "#008800" }, // S2 (复古绿)
-        { bg: "#1a0000", text: "#ff4444", accent: "#880000" }, // S3 (警示红)
-        { bg: "#f0f4f8", text: "#1a2a3a", accent: "#2c5f8a" }  // S4 (浅色)
-    ];
-
-    let flightsDB = {};
-
-    async function syncFromCloud() {
+    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    
+    async function refresh() {
         try {
             const resp = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`);
             const data = await resp.json();
-            if (data.files['calendar_db.json']) {
-                flightsDB = JSON.parse(data.files['calendar_db.json'].content);
-                localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
-            }
-            if (data.files['flight_data.json']) {
-                const live = JSON.parse(data.files['flight_data.json'].content);
-                if (live.style) applyTheme(live.style);
-            }
-            render();
-        } catch(e) {
-            const saved = localStorage.getItem('flight_calendar_db');
-            if (saved) flightsDB = JSON.parse(saved);
-            render();
-        }
+            const flight = JSON.parse(data.files['flight_data.json'].content);
+            const layout = JSON.parse(data.files['clock_layout.json'].content);
+            render(flight, layout);
+        } catch(e) { console.log("等待同步..."); }
     }
 
-    function applyTheme(styleStr) {
-        const idx = parseInt(styleStr.split('-')[1]) - 1;
-        const theme = themeColors[idx] || themeColors[0];
-        document.body.style.backgroundColor = theme.bg;
-        document.body.style.color = theme.text;
-    }
+    function render(f, l) {
+        const box = document.getElementById('display');
+        const isDual = f && (new Date(f.std) - new Date() < 24 * 3600000); // 24小时内任务开启双屏
 
-    function getActiveFlight() {
-        const now = new Date();
-        let all = [];
-        for (let d in flightsDB) flightsDB[d].forEach(f => all.push({ ...f, depDate: new Date(f.departureTime) }));
-        all.sort((a,b) => a.depDate - b.depDate);
-        return all.find(f => f.depDate > new Date(now.getTime() - 12 * 3600000));
-    }
-
-    async function render() {
-        const active = getActiveFlight();
-        const app = document.getElementById('app');
-        app.innerHTML = '';
-
-        if (!active || (active.depDate - new Date()) > 72 * 3600000) {
-            renderSingle();
+        if(!isDual) {
+            box.innerHTML = `
+                <div class="layout">
+                    <div class="clock-text" id="t1" style="left:${l.clock.left}; top:${l.clock.top}; font-size:20vw">00:00</div>
+                </div>`;
         } else {
-            renderDual(active);
+            box.innerHTML = `
+                <div class="flight-bar">✈️ ${f.flightNo} | ${f.dep} ➔ ${f.arr}</div>
+                <div class="dual-container">
+                    <div class="panel"><div class="clock-text" style="left:50%; top:50%; font-size:12vw" id="t1">00:00</div></div>
+                    <div class="panel"><div class="clock-text" style="left:50%; top:50%; font-size:12vw" id="t2">00:00</div></div>
+                </div>`;
         }
+        startClocks(isDual, f ? f.std : null);
     }
 
-    function renderSingle() {
-        const container = document.createElement('div');
-        container.className = 'mode-container';
-        container.innerHTML = `
-            <div class="dual-panel">
-                <div class="clock-text" id="big-clock" style="font-size: 22vw;">00:00</div>
-                <div id="big-date" style="font-size: 1.5vw; opacity: 0.5; letter-spacing: 10px;">LOADING</div>
-            </div>
-        `;
-        app.appendChild(container);
-        startClock(DUBAI_TZ, 'big-clock', 'big-date');
-    }
-
-    function renderDual(f) {
-        const origin = airportDB[f.origin.toUpperCase()] || { city: f.origin, tz: "UTC" };
-        const container = document.createElement('div');
-        container.className = 'mode-container';
-        container.innerHTML = `
-            <div class="flight-bar">✈️ ${f.flightNumber} | ${f.origin}➔${f.destination} | 起飞: ${f.departureTime.split('T')[1].substring(0,5)} (${origin.city})</div>
-            <div class="dual-layout">
-                <div class="dual-panel">
-                    <div class="pane-label">DUBAI / HOME</div>
-                    <div class="clock-text" id="c-dxb" style="font-size: 14vw;">00:00</div>
-                </div>
-                <div class="dual-panel">
-                    <div class="pane-label">${origin.city.toUpperCase()} / LOCAL</div>
-                    <div class="clock-text" id="c-loc" style="font-size: 14vw;">00:00</div>
-                </div>
-            </div>
-        `;
-        app.appendChild(container);
-        startDualClock(DUBAI_TZ, origin.tz);
-    }
-
-    function startClock(tz, clockId, dateId) {
-        if(window.t) clearInterval(window.t);
-        window.t = setInterval(() => {
+    function startClocks(dual, std) {
+        if(window.timer) clearInterval(window.timer);
+        window.timer = setInterval(() => {
             const now = new Date();
-            document.getElementById(clockId).innerText = now.toLocaleTimeString('en-GB', { timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit' });
-            document.getElementById(dateId).innerText = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }).toUpperCase();
+            if(document.getElementById('t1')) document.getElementById('t1').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', timeZone:'Asia/Dubai'});
+            if(dual && document.getElementById('t2')) {
+                // 模拟起飞机场时间（此处逻辑可根据AIRPORT_DB扩展）
+                document.getElementById('t2').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+            }
         }, 1000);
     }
 
-    function startDualClock(tz1, tz2) {
-        if(window.t) clearInterval(window.t);
-        window.t = setInterval(() => {
-            const now = new Date();
-            document.getElementById('c-dxb').innerText = now.toLocaleTimeString('en-GB', { timeZone: tz1, hour12: false, hour: '2-digit', minute: '2-digit' });
-            document.getElementById('c-loc').innerText = now.toLocaleTimeString('en-GB', { timeZone: tz2, hour12: false, hour: '2-digit', minute: '2-digit' });
-        }, 1000);
-    }
-
-    syncFromCloud();
-    setInterval(syncFromCloud, 300000);
+    refresh();
+    setInterval(refresh, 30000); // 30秒拉取一次云端
 </script>
 </body>
 </html>
