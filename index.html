@@ -2,189 +2,206 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <title>Pilot Dashboard Pro</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pilot HUD Dashboard Pro</title>
     <style>
-        :root { --bg: #0d1117; --text: #c9d1d9; --accent: #58a6ff; --border: #30363d; --night: #050505; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: sans-serif; overflow: hidden; height: 100vh; }
-        
-        /* 布局 */
-        #top-info { height: 25%; border-bottom: 1px solid var(--border); display: none; padding: 20px; grid-template-columns: 1.2fr 1fr 1fr; gap: 20px; background: rgba(22, 27, 34, 0.5); }
-        #bottom-main { height: 75%; display: flex; flex-direction: column; justify-content: center; align-items: center; position: relative; }
-        #bottom-main.full { height: 100%; }
+        :root {
+            --bg: #050505; --text: #e0e0e0; --accent: #58a6ff; --warning: #ffa657; --danger: #ff7b72; --glass: rgba(255,255,255,0.05);
+        }
+        * { box-sizing: border-box; }
+        body { 
+            margin: 0; background: var(--bg); color: var(--text); 
+            font-family: "SF Pro Display", -apple-system, sans-serif;
+            overflow: hidden; height: 100vh; 
+        }
 
-        /* 时钟与天气 */
-        #clock-big { font-size: 20vw; font-weight: bold; line-height: 1; }
-        .weather-panel { position: absolute; top: 20px; right: 20px; text-align: right; }
-        
-        /* 进度条 */
-        .prog-wrap { grid-column: span 3; background: #30363d; height: 12px; border-radius: 6px; position: relative; overflow: hidden; margin-top: 10px; }
-        #prog-bar { background: var(--accent); height: 100%; width: 0%; transition: width 5s linear; }
-        #plane-icon { position: absolute; top: -5px; right: 0; font-size: 20px; transition: left 5s linear; }
+        /* 顶部 1/4 动态看板 */
+        #top-info {
+            height: 25%; width: 100%; border-bottom: 2px solid #30363d;
+            display: none; grid-template-columns: 1fr 1fr 1fr; padding: 15px; gap: 10px;
+        }
 
-        /* Layover 双屏 */
-        #layover-view { display: none; width: 100%; height: 100%; grid-template-columns: 1fr 1fr; }
-        .city-pane { display: flex; flex-direction: column; justify-content: center; align-items: center; transition: background 2s; }
-        .night-pane { background: var(--night); }
+        /* 底部 3/4 主显示区 */
+        #main-area { height: 75%; width: 100%; position: relative; display: flex; align-items: center; justify-content: center; }
+        #main-area.full { height: 100%; }
+
+        /* 大时钟样式 */
+        .clock-container { text-align: center; position: relative; }
+        .big-time { font-size: 24vw; font-weight: 800; line-height: 0.9; letter-spacing: -8px; }
+        .date-bar { font-size: 2.5vw; color: #8b949e; letter-spacing: 4px; margin-top: 20px; text-transform: uppercase; border-top: 1px solid #333; padding-top: 10px; }
+        
+        /* 天气符号（右上角） */
+        .weather-corner { position: absolute; top: 20px; right: 30px; text-align: right; }
+        .w-icon { font-size: 5vw; }
+        .w-temp { font-size: 3vw; color: var(--accent); font-weight: 300; }
+
+        /* 进度条样式 */
+        .progress-box { grid-column: span 3; background: #222; height: 12px; border-radius: 6px; margin-top: 5px; position: relative; overflow: hidden; }
+        #bar-inner { height: 100%; background: linear-gradient(90deg, #58a6ff, #afff93); width: 0%; transition: width 2s; }
+
+        /* 分屏模式 (Layover) */
+        .split-view { display: none; width: 100%; height: 100%; grid-template-columns: 1fr 1fr; }
+        .pane { display: flex; flex-direction: column; align-items: center; justify-content: center; }
+        .pane-home { border-right: 1px solid #333; }
+
+        /* 状态标签 */
+        .tag { font-size: 0.8vw; padding: 2px 6px; border-radius: 4px; background: var(--accent); color: #000; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="top-info">
-    <div>
-        <div id="f-meta" style="color: #8b949e; font-size: 1.2vw;">FLIGHT DYNAMIC</div>
-        <div id="f-route" style="font-size: 3vw; font-weight: bold; color: var(--accent);">---</div>
-        <div id="f-status-text" style="font-size: 1.5vw; color: #afff93;">PRE-FLIGHT</div>
+    <div id="top-left">
+        <div id="f-no-tag" class="tag">FLIGHT</div>
+        <div id="f-route-zh" style="font-size: 2.5vw; font-weight: bold;">-- ➔ --</div>
+        <div id="f-route-en" style="font-size: 1.2vw; color: #8b949e;">-- TO --</div>
     </div>
-    <div style="text-align: center; border-left: 1px solid var(--border); border-right: 1px solid var(--border);">
-        <div id="dest-t" style="font-size: 3vw;">--°C</div>
-        <div id="dest-w" style="font-size: 1vw;">--</div>
-        <div id="dest-cloth" style="font-size: 1vw; color: var(--accent);">--</div>
+    <div id="top-mid" style="text-align: center; border-left: 1px solid #333; border-right: 1px solid #333;">
+        <div id="dest-wx-icon" style="font-size: 3vw;">☀️</div>
+        <div id="dest-wx-temp" style="font-size: 1.5vw;">--°C</div>
+        <div id="dest-cloth" style="font-size: 1vw; color: var(--warning);">穿衣指数: 加载中</div>
     </div>
-    <div style="font-size: 0.8vw; overflow: hidden;">
-        <div style="color: #8b949e;">DEST NOTAM / ADVISORY:</div>
-        <div id="notam-content" style="background: #161b22; padding: 5px; height: 80px; margin-top: 5px;">Fetching terminal info...</div>
+    <div id="top-right">
+        <div style="font-size: 0.8vw; color: var(--danger);">⚠️ NOTAM / RISK ADVISORY</div>
+        <div id="notam-text" style="font-size: 0.9vw; line-height: 1.2; height: 70px; overflow: hidden; background: #111; padding: 5px;">
+            Scanning for airfield restrictions...
+        </div>
     </div>
-    <div class="prog-wrap">
-        <div id="prog-bar"></div>
-        <div id="plane-icon">✈️</div>
+    <div class="progress-box" id="f-progress-wrap" style="display:none;">
+        <div id="bar-inner"></div>
     </div>
 </div>
 
-<div id="bottom-main">
-    <div class="weather-panel">
-        <div id="dxb-t" style="font-size: 4vw; color: var(--accent);">--°C</div>
-        <div id="dxb-w" style="font-size: 1.2vw;">---</div>
+<div id="main-area" class="full">
+    <div class="weather-corner">
+        <div class="w-icon">☀️</div>
+        <div class="w-temp" id="dxb-temp-main">--°C</div>
     </div>
 
-    <div id="default-clock">
-        <div id="clock-big">00:00</div>
-        <div id="date-line" style="font-size: 2vw; text-align: center; color: #8b949e;">----</div>
+    <div id="view-normal" class="clock-container">
+        <div class="big-time" id="clock-dxb">00:00</div>
+        <div class="date-bar" id="date-dxb">APRIL 24 FRIDAY / 2026年4月24日</div>
     </div>
 
-    <div id="layover-view">
-        <div class="city-pane" id="pane-home">
-            <div style="font-size: 2vw;">DUBAI</div>
-            <div id="time-home" style="font-size: 10vw; font-weight: bold;">00:00</div>
+    <div id="view-layover" class="split-view">
+        <div class="pane pane-home">
+            <div style="font-size: 1.5vw; color: #8b949e;">DUBAI 迪拜</div>
+            <div class="big-time" id="split-dxb-time" style="font-size: 12vw;">00:00</div>
+            <div style="font-size: 2vw;" id="split-dxb-wx">☀️ 32°C</div>
         </div>
-        <div class="city-pane" id="pane-dest">
-            <div id="dest-name" style="font-size: 2vw;">DESTINATION</div>
-            <div id="time-dest" style="font-size: 10vw; font-weight: bold;">00:00</div>
-            <div id="dest-w-small" style="font-size: 2vw; color: var(--accent);">--°C</div>
+        <div class="pane">
+            <div id="layover-city-title" style="font-size: 1.5vw; color: var(--accent);">-- --</div>
+            <div class="big-time" id="split-loc-time" style="font-size: 12vw;">00:00</div>
+            <div style="font-size: 2vw;" id="split-loc-wx">🌙 --°C</div>
         </div>
     </div>
 </div>
 
 <script>
-    // 凭证配置
-    const AUTH = {
-        opensky: btoa('chunhua1799@gmail.com-api-client:wiwHeRsyyP9r9zsCnyWMsE7OHb8FQImY'),
-        weather: '9fcc9afb0a80a6aaa44c926e4f7827a7',
-        gist: '6b51ae2b894903de0227eaec5e0ce842'
+    const CONFIG = {
+        gist: "6b51ae2b894903de0227eaec5e0ce842",
+        wKey: "9fcc9afb0a80a6aaa44c926e4f7827a7"
     };
 
-    let state = { flight: null, dxbWeather: null, destWeather: null };
+    let fData = null;
 
-    // --- 实时追踪逻辑 (OpenSky) ---
-    async function trackFlight(callsign) {
-        if (!callsign) return;
+    async function fetchData() {
         try {
-            const res = await fetch(`https://opensky-network.org/api/states/all?icao24=${callsign}`, {
-                headers: { 'Authorization': `Basic ${AUTH.opensky}` }
-            });
-            const data = await res.json();
-            if (data.states && data.states.length > 0) {
-                const s = data.states[0];
-                const velocity = Math.round(s[9] * 3.6); // 速度 km/h
-                const altitude = Math.round(s[7]); // 高度 m
-                document.getElementById('f-status-text').innerText = `IN-FLIGHT: ${altitude}m | ${velocity}km/h`;
-            }
-        } catch (e) { console.log("OpenSky Offline"); }
-    }
-
-    // --- 数据同步 (Gist) ---
-    async function syncGist() {
-        try {
-            const res = await fetch(`https://api.github.com/gists/${AUTH.gist}`);
-            const data = await res.json();
-            state.flight = JSON.parse(data.files["flight_data.json"].content);
+            const res = await fetch(`https://api.github.com/gists/${CONFIG.gist}`);
+            const gist = await res.json();
+            fData = JSON.parse(gist.files["flight_data.json"].content);
             updateUI();
-        } catch (e) { console.log("Gist Error"); }
-    }
-
-    // --- 时钟与布局切换 ---
-    function updateClock() {
-        const now = new Date();
-        const dxbStr = new Intl.DateTimeFormat('en-GB', { hour:'2-digit', minute:'2-digit', timeZone:'Asia/Dubai' }).format(now);
-        document.getElementById('clock-big').innerText = dxbStr;
-        document.getElementById('time-home').innerText = dxbStr;
-        document.getElementById('date-line').innerText = now.toLocaleDateString('zh-CN', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
-
-        if (state.flight) {
-            const std = new Date(state.flight.std);
-            const hoursDiff = (std - now) / 3600000;
-
-            // 1. 顶部 1/4 逻辑
-            if (hoursDiff <= 36 && hoursDiff > -12) {
-                document.getElementById('top-info').style.display = 'grid';
-                document.getElementById('bottom-main').classList.remove('full');
-            } else {
-                document.getElementById('top-info').style.display = 'none';
-                document.getElementById('bottom-main').classList.add('full');
-            }
-
-            // 2. Layover 逻辑
-            if (state.flight.isLayover) {
-                document.getElementById('default-clock').style.display = 'none';
-                document.getElementById('layover-view').style.display = 'grid';
-                // 自动切换昼夜背景
-                const hr = now.getHours();
-                document.getElementById('pane-home').className = (hr > 18 || hr < 6) ? 'city-pane night-pane' : 'city-pane';
-            } else {
-                document.getElementById('default-clock').style.display = 'block';
-                document.getElementById('layover-view').style.display = 'none';
-            }
-
-            // 3. 进度条模拟 (若OpenSky未抓到实时数据，则按时间计算)
-            if (now > std) {
-                const sta = new Date(state.flight.sta);
-                const p = Math.min(((now - std) / (sta - std)) * 100, 100);
-                document.getElementById('prog-bar').style.width = p + '%';
-            }
-        }
-    }
-
-    // --- 天气更新 ---
-    async function updateWeather() {
-        const fetchW = async (city) => {
-            const r = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${AUTH.weather}`);
-            return await r.json();
-        };
-
-        const dxb = await fetchW('Dubai');
-        document.getElementById('dxb-t').innerText = Math.round(dxb.main.temp) + "°C";
-        document.getElementById('dxb-w').innerText = dxb.weather[0].main.toUpperCase();
-
-        if (state.flight && state.flight.arr) {
-            const dest = await fetchW(state.flight.arr);
-            document.getElementById('dest-t').innerText = Math.round(dest.main.temp) + "°C";
-            document.getElementById('dest-w').innerText = dest.weather[0].description;
-            document.getElementById('dest-cloth').innerText = dest.main.temp > 22 ? "LGT CLOTHING" : "WINTER GEAR";
-        }
+        } catch (e) { console.error("Sync error"); }
     }
 
     function updateUI() {
-        if (!state.flight) return;
-        document.getElementById('f-route').innerText = `${state.flight.dep} ➔ ${state.flight.arr}`;
-        document.getElementById('dest-name').innerText = state.flight.layoverCity || state.flight.arr;
-        if (state.flight.status === 'airborne') trackFlight(state.flight.icao24);
+        const now = new Date();
+        const std = new Date(fData.std_local);
+        const hoursToFlight = (std - now) / 3600000;
+        
+        const top = document.getElementById('top-info');
+        const main = document.getElementById('main-area');
+        const vNormal = document.getElementById('view-normal');
+        const vLayover = document.getElementById('view-layover');
+
+        // --- 场景逻辑引擎 ---
+
+        // 1. 24小时内无航班 -> 全屏迪拜
+        if (!fData.active || hoursToFlight > 72 || hoursToFlight < -24) {
+            top.style.display = 'none';
+            main.classList.add('full');
+            vNormal.style.display = 'block';
+            vLayover.style.display = 'none';
+            return;
+        }
+
+        // 2. 场景：Layover (落地超过一小时，起飞前14小时以上)
+        if (fData.isLayover && hoursToFlight > 14) {
+            top.style.display = 'grid'; // 顶部显示 Layover 国家城市
+            main.classList.remove('full');
+            vNormal.style.display = 'none';
+            vLayover.style.display = 'grid';
+            document.getElementById('layover-city-title').innerText = `${fData.arr} | ${fData.arr_cn || ''}`;
+            document.getElementById('f-no-tag').innerText = "LAYOVER";
+            updateWeather(fData.arr);
+        } 
+        // 3. 场景：飞行中 / 推出
+        else if (fData.status === 'airborne' || fData.status === 'pushback') {
+            top.style.display = 'grid';
+            main.classList.remove('full');
+            vNormal.style.display = 'block';
+            document.getElementById('f-progress-wrap').style.display = 'block';
+            updateFlightProgress(now, std, new Date(fData.sta));
+        }
+        // 4. 场景：预飞 (未来72小时有航班)
+        else {
+            top.style.display = 'grid';
+            main.classList.remove('full');
+            vNormal.style.display = 'block';
+            vLayover.style.display = 'none';
+            document.getElementById('f-route-zh').innerText = `${fData.dep} ➔ ${fData.arr}`;
+            updateWeather(fData.arr);
+        }
     }
 
-    // 初始化
-    setInterval(updateClock, 1000);
-    setInterval(syncGist, 300000); 
-    setInterval(updateWeather, 1800000);
-    syncGist();
-    updateWeather();
+    function updateFlightProgress(now, std, sta) {
+        const total = sta - std;
+        const current = now - std;
+        const pct = Math.min(Math.max((current / total) * 100, 0), 100);
+        document.getElementById('bar-inner').style.width = pct + "%";
+        // 如果有连程航班逻辑，可在此处动态修改 fData.next_leg
+    }
+
+    async function updateWeather(city) {
+        const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${CONFIG.wKey}`);
+        const d = await res.json();
+        const temp = Math.round(d.main.temp);
+        document.getElementById('dest-wx-temp').innerText = temp + "°C";
+        document.getElementById('dest-cloth').innerText = temp > 20 ? "穿衣指数: 轻便" : "穿衣指数: 防寒";
+        // 同时也更新分屏右侧
+        if(document.getElementById('split-loc-wx')) {
+            document.getElementById('split-loc-wx').innerText = `${temp}°C ${d.weather[0].main}`;
+        }
+    }
+
+    function tick() {
+        const now = new Date();
+        const dxbTime = new Intl.DateTimeFormat('en-GB', { hour:'2-digit', minute:'2-digit', hour12:false, timeZone:'Asia/Dubai' }).format(now);
+        
+        document.getElementById('clock-dxb').innerText = dxbTime;
+        document.getElementById('split-dxb-time').innerText = dxbTime;
+        
+        // 更新日期
+        const dateOpt = { month: 'long', day: 'numeric', weekday: 'long' };
+        document.getElementById('date-dxb').innerText = now.toLocaleDateString('zh-CN', dateOpt).toUpperCase();
+        
+        // 模拟目的地时间计算 (需根据时区，此处暂用系统时间)
+        document.getElementById('split-loc-time').innerText = dxbTime; 
+    }
+
+    setInterval(tick, 1000);
+    setInterval(fetchData, 300000);
+    tick(); fetchData();
 </script>
 </body>
 </html>
