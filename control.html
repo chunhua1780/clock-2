@@ -3,111 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>航班控制台 · 专家版</title>
+    <title>航班控制台</title>
     <style>
-        * { box-sizing: border-box; }
-        body { background: #f0f4f8; font-family: system-ui; padding: 20px; color: #2c5f8a; }
-        .card { background: white; border-radius: 25px; padding: 20px; margin-bottom: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
-        input, button { width: 100%; padding: 12px; margin: 8px 0; border-radius: 15px; border: 1px solid #ddd; }
-        .btn-sync { background: #2c5f8a; color: white; font-weight: 700; border: none; }
-        .style-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 10px; }
-        .s-btn { padding: 10px; border-radius: 10px; border: 1px solid #ddd; background: #fff; font-size: 10px; cursor: pointer; }
-        .s-btn.active { background: #2c5f8a; color: white; }
-        .item { background: #f9fbfd; padding: 15px; border-radius: 15px; margin-top: 10px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid #ffaa44; }
-        input[type="text"] { text-transform: uppercase; }
+        body { background: #f0f4f8; font-family: system-ui; padding: 20px; }
+        .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input { width: 100%; padding: 10px; margin: 5px 0; border-radius: 10px; border: 1px solid #ddd; }
+        button { width: 100%; padding: 12px; background: #2c5f8a; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
+        .item { border-left: 5px solid #ffaa44; background: #f9f9f9; padding: 10px; margin-top: 10px; display: flex; justify-content: space-between; }
     </style>
 </head>
 <body>
-
     <div class="card">
-        <h2>✈️ 安排航段</h2>
+        <h3>安排航段</h3>
         <input type="date" id="fDate">
-        <div style="display:flex; gap:10px;">
-            <input type="text" id="fNo" placeholder="航班号 (795)">
-            <input type="text" id="fDep" placeholder="起点 (DSS)" maxlength="3">
-            <input type="text" id="fArr" placeholder="终点 (DXB)" maxlength="3">
-        </div>
-        <input type="tel" id="fTime" placeholder="当地起飞时间 (1820)" maxlength="4">
-        <button class="btn-sync" onclick="save()">保存并同步云端</button>
+        <input type="text" id="fNo" placeholder="航班号 (如 795)">
+        <input type="text" id="fDep" placeholder="起点 (如 DSS)">
+        <input type="text" id="fArr" placeholder="终点 (如 DXB)">
+        <input type="text" id="fTime" placeholder="起飞时间 (如 1820)">
+        <button onclick="saveAndSync()">保存并同步云端</button>
     </div>
-
+    <div class="card" id="list"></div>
     <div class="card">
-        <h3>🎨 时钟风格</h3>
-        <div class="style-grid" id="stylePicker"></div>
-    </div>
-
-    <div class="card">
-        <h3>📋 任务清单</h3>
-        <div id="list"></div>
-    </div>
-
-    <div class="card" style="font-size: 10px; color: #999;">
-        Token: <input type="password" id="tk" style="padding:5px;">
-        Gist: <input type="text" id="gi" style="padding:5px;">
-        <button onclick="localStorage.setItem('gh_token', document.getElementById('tk').value); localStorage.setItem('gist_id', document.getElementById('gi').value); location.reload();">更新配置</button>
+        Token: <input type="password" id="tk" placeholder="GitHub Token">
+        <button onclick="localStorage.setItem('gh_token', document.getElementById('tk').value); location.reload();">锁定Token</button>
     </div>
 
 <script>
-    let GH_TOKEN = localStorage.getItem('gh_token') || "";
-    let GIST_ID = localStorage.getItem('gist_id') || "6b51ae2b894903de0227eaec5e0ce842";
-    let flightsDB = JSON.parse(localStorage.getItem('flight_calendar_db')) || {};
-    let curStyle = localStorage.getItem('clock_style') || "style-1";
+    let GH_TOKEN = localStorage.getItem('gh_token');
+    let GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    let db = JSON.parse(localStorage.getItem('flight_db')) || {};
 
-    function save() {
+    function saveAndSync() {
         const d = document.getElementById('fDate').value;
-        const no = document.getElementById('fNo').value.toUpperCase();
-        const dep = document.getElementById('fDep').value.toUpperCase();
-        const arr = document.getElementById('fArr').value.toUpperCase();
-        const t = document.getElementById('fTime').value;
-
-        if(!d || !t || t.length<4) return alert("请补全信息");
-        const iso = `${d}T${t.slice(0,2)}:${t.slice(2,4)}:00`;
-
-        if(!flightsDB[d]) flightsDB[d] = [];
-        flightsDB[d].push({ id: Date.now(), flightNumber: no.startsWith('EK')?no:'EK'+no, origin: dep, destination: arr, departureTime: iso });
+        const no = document.getElementById('fNo').value;
+        const iso = `${d}T${document.getElementById('fTime').value.slice(0,2)}:${document.getElementById('fTime').value.slice(2,4)}:00`;
         
-        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+        if(!db[d]) db[d] = [];
+        db[d].push({ flightNo: 'EK'+no, dep: document.getElementById('fDep').value, arr: document.getElementById('fArr').value, std: iso });
+        localStorage.setItem('flight_db', JSON.stringify(db));
         sync();
     }
 
     async function sync() {
-        if(!GH_TOKEN) return alert("请先输入 Token");
-        
-        let all = [];
-        for(let d in flightsDB) flightsDB[d].forEach(f => all.push(f));
-        all.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
-        let active = all.find(f => new Date(f.departureTime) > new Date(Date.now() - 12*3600000)) || all[0];
-
-        const payload = { flightNo: active?.flightNumber, dep: active?.origin, arr: active?.destination, std: active?.departureTime, style: curStyle };
-
-        try {
-            await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-                method: 'PATCH',
-                headers: { 'Authorization': `token ${GH_TOKEN}`, 'Content-Type': 'application/json' },
-                body: JSON.stringify({ files: { 'calendar_db.json': { content: JSON.stringify(flightsDB) }, 'flight_data.json': { content: JSON.stringify(payload) } } })
-            });
-            alert("🚀 同步成功"); render();
-        } catch (e) { alert("同步失败"); }
+        let all = []; Object.values(db).forEach(day => all = all.concat(day));
+        let active = all[all.length - 1]; // 简单取最后一个
+        await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+            method: 'PATCH',
+            headers: { 'Authorization': `token ${GH_TOKEN}` },
+            body: JSON.stringify({ files: { 
+                'calendar_db.json': { content: JSON.stringify(db) },
+                'flight_data.json': { content: JSON.stringify(active) }
+            } })
+        });
+        alert("同步成功"); location.reload();
     }
-
-    function render() {
-        const box = document.getElementById('list'); box.innerHTML = "";
-        for(let d in flightsDB) {
-            flightsDB[d].forEach(f => {
-                box.innerHTML += `<div class="item"><b>${f.flightNumber}</b> ${f.origin}-${f.destination} (${f.departureTime.split('T')[1].substring(0,5)}) <button onclick="del('${d}', ${f.id})" style="width:50px; background:none; border:none; color:red;">删除</button></div>`;
-            });
-        }
-    }
-
-    window.del = (d, id) => { flightsDB[d] = flightsDB[d].filter(f => f.id !== id); localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB)); render(); sync(); };
-
-    const picker = document.getElementById('stylePicker');
-    for(let i=1; i<=20; i++) {
-        const btn = document.createElement('button'); btn.className = `s-btn ${curStyle==='style-'+i?'active':''}`; btn.innerText = 'S'+i;
-        btn.onclick = () => { curStyle='style-'+i; localStorage.setItem('clock_style', curStyle); sync(); };
-        picker.appendChild(btn);
-    }
-    render();
 </script>
 </body>
 </html>
