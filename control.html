@@ -1,10 +1,9 @@
-```html
 <!DOCTYPE html>
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>航班控制台 · 智能回程+联程</title>
+    <title>航班控制台 · 云端同步</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -17,6 +16,17 @@
         .container { max-width: 550px; margin: 0 auto; }
         h1 { font-size: 1.5rem; font-weight: 600; color: #ffd966; }
         .sub { font-size: 0.7rem; color: #88aacc; margin-bottom: 20px; }
+        .sync-status {
+            background: #2a6faa;
+            border-radius: 20px;
+            padding: 6px 12px;
+            font-size: 0.7rem;
+            text-align: center;
+            margin-bottom: 16px;
+        }
+        .sync-status.success { background: #2a6faa; }
+        .sync-status.error { background: #aa4444; }
+        .sync-status.syncing { background: #ffaa44; color: #0a0e1a; }
         
         .month-nav {
             display: flex;
@@ -117,7 +127,6 @@
         }
         .search-btn { background: #ffaa44; color: #0a0e1a; }
         .manual-btn { background: #2a6faa; color: white; }
-        .multi-btn { background: #6a2faa; color: white; }
         
         .preview-card {
             background: #1a2a3a;
@@ -129,67 +138,6 @@
         .preview-title { font-size: 0.7rem; color: #ffaa66; margin-bottom: 6px; }
         .preview-local { font-size: 0.85rem; margin-bottom: 4px; }
         .preview-dubai { font-size: 0.85rem; color: #66ffaa; }
-        
-        /* 回程航班卡片 */
-        .return-card {
-            background: #1a2a3a;
-            border-radius: 16px;
-            padding: 15px;
-            margin-top: 12px;
-            border: 2px solid #ffaa44;
-        }
-        .return-title { font-size: 0.8rem; color: #ffaa66; margin-bottom: 12px; font-weight: bold; }
-        .return-row {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 12px;
-            flex-wrap: wrap;
-        }
-        .return-row input, .return-row select {
-            flex: 1;
-            background: #1a1f2e;
-            border: 1px solid #334455;
-            padding: 12px;
-            border-radius: 40px;
-            color: white;
-            font-size: 0.9rem;
-            text-align: center;
-        }
-        .date-scroll {
-            display: flex;
-            gap: 8px;
-            overflow-x: auto;
-            padding: 8px 0;
-            margin-bottom: 12px;
-        }
-        .date-option {
-            background: #1a1f2e;
-            border: 1px solid #334455;
-            padding: 8px 16px;
-            border-radius: 40px;
-            cursor: pointer;
-            white-space: nowrap;
-            font-size: 0.8rem;
-        }
-        .date-option.selected {
-            background: #ffaa44;
-            color: #0a0e1a;
-            border-color: #ffaa44;
-        }
-        .custom-dest-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .small-btn {
-            background: #2a6faa;
-            border: none;
-            padding: 8px 16px;
-            border-radius: 30px;
-            cursor: pointer;
-            color: white;
-            font-size: 0.7rem;
-        }
         .hidden { display: none; }
         
         .smart-tips {
@@ -259,7 +207,9 @@
 <body>
 <div class="container">
     <h1>✈️ 航班控制台</h1>
-    <div class="sub">点击日期 → 输入航班号 → 自动弹出回程/联程窗口</div>
+    <div class="sub">云端同步 · 手机添加iPad自动显示</div>
+    
+    <div id="syncStatus" class="sync-status success">☁️ 云端同步已开启</div>
     
     <div class="month-nav">
         <button id="prevMonthBtn">◀</button>
@@ -303,56 +253,37 @@
             <button id="cancelManualBtn" style="margin-top:5px; background:#444; border:none; padding:8px; border-radius:40px; cursor:pointer;">取消</button>
         </div>
         
-        <!-- 回程/联程航班弹窗 -->
-        <div id="returnCard" class="return-card hidden">
-            <div class="return-title">✈️ 添加回程/联程航班</div>
-            <div class="return-row">
-                <input type="text" id="returnFlightNum" placeholder="回程航班号 (如 304)" autocomplete="off">
-            </div>
-            <div class="return-row">
-                <input type="text" id="returnOrigin" placeholder="起飞机场" style="text-transform:uppercase" readonly>
-                <input type="text" id="returnDest" placeholder="目的地机场" style="text-transform:uppercase" value="DXB">
-            </div>
-            <div class="custom-dest-row">
-                <input type="text" id="customDest" placeholder="自定义目的地机场三字码" maxlength="3" style="text-transform:uppercase; flex:2;">
-                <button id="applyCustomDest" class="small-btn">应用</button>
-            </div>
-            <div class="date-scroll" id="dateScroll"></div>
-            <div class="return-row">
-                <input type="text" id="returnTime" placeholder="起飞时间 (4位数 如 1430)" autocomplete="off">
-            </div>
-            <div style="display: flex; gap: 10px; margin-top: 10px;">
-                <button id="confirmReturnBtn" style="flex:1; background:#ffaa44; border:none; padding:10px; border-radius:40px; font-weight:bold; cursor:pointer;">✅ 添加回程</button>
-                <button id="cancelReturnBtn" style="flex:1; background:#444; border:none; padding:10px; border-radius:40px; cursor:pointer;">取消</button>
-            </div>
-        </div>
-        
         <div class="smart-tips">
             💡 <span>303</span> → EK0303 &nbsp;&nbsp; <span>1415</span> → 14:15<br>
-            🕐 从迪拜出发自动弹出回程窗口，目的地可自定义三字码
+            🕐 添加后自动云端同步，iPad主时钟立即显示
         </div>
         
         <div id="flightListContainer">
             <div class="empty-tip">✈️ 当天无航班<br>点击日期后添加</div>
         </div>
         
-        <button id="syncBtn" class="sync-btn">🔄 同步到主时钟</button>
+        <button id="syncBtn" class="sync-btn">🔄 手动同步到云端</button>
     </div>
 </div>
 
 <script>
     // ============================================================
-    // 配置
+    // 您的 Gist ID 已配置
     // ============================================================
-    const API_KEY = "b4bd321bbba1723162801cce3c455d7c";
-    const DUBAI_TZ = "Asia/Dubai";
-    const DUBAI_AIRPORTS = ["DXB", "AUH", "SHJ", "DWC"];
+    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    const GIST_API_URL = `https://api.github.com/gists/${GIST_ID}`;
     
+    let flightsDB = {};
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let selectedDate = null;
+    let pendingFlightData = null;
+    
+    const DUBAI_TZ = "Asia/Dubai";
     const airportTimezone = {
-        "DXB": "Asia/Dubai", "AUH": "Asia/Dubai", "SHJ": "Asia/Dubai", "DWC": "Asia/Dubai",
-        "PVG": "Asia/Shanghai", "PEK": "Asia/Shanghai", "CAN": "Asia/Shanghai", "SZX": "Asia/Shanghai",
-        "HKG": "Asia/Hong_Kong", "LHR": "Europe/London", "JFK": "America/New_York",
-        "CDG": "Europe/Paris", "FRA": "Europe/Berlin", "AMS": "Europe/Amsterdam", "SYD": "Australia/Sydney"
+        "DXB": "Asia/Dubai", "AUH": "Asia/Dubai", "SHJ": "Asia/Dubai",
+        "PVG": "Asia/Shanghai", "PEK": "Asia/Shanghai", "CAN": "Asia/Shanghai",
+        "HKG": "Asia/Hong_Kong", "LHR": "Europe/London", "JFK": "America/New_York"
     };
     
     function getTz(code) { return airportTimezone[code] || "Asia/Shanghai"; }
@@ -360,19 +291,98 @@
         return new Date(date).toLocaleTimeString('zh-CN', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     }
     
-    let flightsDB = {};
-    let currentYear = new Date().getFullYear();
-    let currentMonth = new Date().getMonth();
-    let selectedDate = null;
-    let pendingFlightData = null;
-    let lastAddedFlight = null;
-    
     function showToast(msg) {
         let toast = document.createElement('div');
         toast.className = 'toast';
         toast.innerText = msg;
         document.body.appendChild(toast);
         setTimeout(() => toast.remove(), 2000);
+    }
+    
+    function updateSyncStatus(status, msg) {
+        let div = document.getElementById('syncStatus');
+        div.className = `sync-status ${status}`;
+        div.innerText = msg;
+        setTimeout(() => {
+            if (div.className !== 'sync-status error') {
+                div.className = 'sync-status success';
+                div.innerText = '☁️ 云端同步已开启';
+            }
+        }, 3000);
+    }
+    
+    async function loadFromCloud() {
+        try {
+            updateSyncStatus('syncing', '☁️ 正在同步云端...');
+            const resp = await fetch(GIST_API_URL);
+            const data = await resp.json();
+            if (data.files && data.files['flight_data.json']) {
+                const content = JSON.parse(data.files['flight_data.json'].content);
+                flightsDB = content.flightsDB || {};
+                localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+                updateSyncStatus('success', '✅ 云端同步成功');
+                renderCalendar();
+                renderDayFlights();
+                return;
+            }
+        } catch(e) {
+            console.error("加载失败:", e);
+            updateSyncStatus('error', '⚠️ 云端连接失败，使用本地数据');
+        }
+        try {
+            const saved = localStorage.getItem('flight_calendar_db');
+            if (saved) flightsDB = JSON.parse(saved);
+        } catch(e) {}
+        renderCalendar();
+        renderDayFlights();
+    }
+    
+    async function saveToCloud() {
+        try {
+            updateSyncStatus('syncing', '☁️ 正在保存到云端...');
+            const content = JSON.stringify({ flightsDB: flightsDB, lastUpdated: new Date().toISOString() }, null, 2);
+            const resp = await fetch(GIST_API_URL, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    files: { 'flight_data.json': { content: content } }
+                })
+            });
+            if (resp.ok) {
+                updateSyncStatus('success', '✅ 已保存到云端');
+                localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+                syncToMainClock();
+            } else {
+                throw new Error('保存失败');
+            }
+        } catch(e) {
+            console.error("保存失败:", e);
+            updateSyncStatus('error', '⚠️ 云端保存失败，已保存到本地');
+            localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+            syncToMainClock();
+        }
+    }
+    
+    function syncToMainClock() {
+        let allFlights = [];
+        for (let date in flightsDB) {
+            for (let f of flightsDB[date]) allFlights.push(f);
+        }
+        if (allFlights.length === 0) return;
+        let now = new Date();
+        let future = allFlights.filter(f => new Date(f.departureTime) > now);
+        future.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
+        let active = future.length > 0 ? future[0] : allFlights[0];
+        if (active) {
+            let syncData = {
+                flightNumber: active.flightNumber,
+                origin: active.origin,
+                destination: active.destination,
+                departureTime: active.departureTime,
+                pickupTime: new Date(new Date(active.departureTime).getTime() - 135*60000).toISOString()
+            };
+            localStorage.setItem('last_flight', JSON.stringify(syncData));
+        }
     }
     
     function smartFlightNum(input) {
@@ -403,7 +413,7 @@
     async function searchFlight(flightNumber) {
         let fn = smartFlightNum(flightNumber);
         try {
-            let url = `https://api.aviationstack.com/v1/flights?access_key=${API_KEY}&flight_iata=${fn}&limit=1`;
+            let url = `https://api.aviationstack.com/v1/flights?access_key=b4bd321bbba1723162801cce3c455d7c&flight_iata=${fn}&limit=1`;
             let resp = await fetch(url);
             let data = await resp.json();
             if (data.data && data.data.length > 0) {
@@ -429,150 +439,23 @@
             destination: dest,
             departureTime: depTime
         });
-        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+        saveToCloud();
         renderCalendar();
         renderDayFlights();
-        syncToMainClock();
         showToast(`✅ 已添加 ${flightNum}`);
-        
-        // 记录刚添加的航班
-        lastAddedFlight = { origin: origin, destination: dest, date: date };
-        
-        // 如果是从迪拜出发且目的地不是迪拜，弹出回程窗口
-        if (DUBAI_AIRPORTS.includes(origin) && !DUBAI_AIRPORTS.includes(dest)) {
-            showReturnPopup(dest, date);
-        }
-    }
-    
-    // 显示回程航班弹窗
-    function showReturnPopup(fromAirport, departDate) {
-        let returnCard = document.getElementById('returnCard');
-        let returnOrigin = document.getElementById('returnOrigin');
-        let returnDest = document.getElementById('returnDest');
-        
-        returnOrigin.value = fromAirport;
-        returnDest.value = "DXB";
-        document.getElementById('returnFlightNum').value = '';
-        document.getElementById('returnTime').value = '';
-        
-        // 生成日期滚动选项 (今天, 明天, 后天, 大后天, 大大后天)
-        let dateScroll = document.getElementById('dateScroll');
-        dateScroll.innerHTML = '';
-        let baseDate = new Date(departDate);
-        let selectedDateStr = null;
-        
-        for (let i = 0; i <= 7; i++) {
-            let optionDate = new Date(baseDate);
-            optionDate.setDate(baseDate.getDate() + i);
-            let dateStr = optionDate.toISOString().split('T')[0];
-            let displayStr = i === 0 ? `今天 ${dateStr.slice(5)}` : 
-                            i === 1 ? `明天 ${dateStr.slice(5)}` :
-                            i === 2 ? `后天 ${dateStr.slice(5)}` :
-                            `${dateStr.slice(5)}`;
-            let div = document.createElement('div');
-            div.className = 'date-option';
-            div.innerText = displayStr;
-            div.dataset.date = dateStr;
-            if (i === 1) {
-                div.classList.add('selected');
-                selectedDateStr = dateStr;
-            }
-            div.onclick = () => {
-                document.querySelectorAll('.date-option').forEach(d => d.classList.remove('selected'));
-                div.classList.add('selected');
-                selectedDateStr = dateStr;
-            };
-            dateScroll.appendChild(div);
-        }
-        
-        returnCard.classList.remove('hidden');
-        
-        // 确认添加回程
-        let confirmBtn = document.getElementById('confirmReturnBtn');
-        let newConfirmBtn = confirmBtn.cloneNode(true);
-        confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-        newConfirmBtn.onclick = () => {
-            let returnFlightNum = document.getElementById('returnFlightNum').value.trim();
-            let returnOriginVal = document.getElementById('returnOrigin').value.trim().toUpperCase();
-            let returnDestVal = document.getElementById('returnDest').value.trim().toUpperCase();
-            let returnTimeStr = document.getElementById('returnTime').value.trim();
-            let finalDate = selectedDateStr || new Date(baseDate).toISOString().split('T')[0];
-            
-            if (!returnFlightNum) { showToast("请输入回程航班号"); return; }
-            if (!returnOriginVal || !returnDestVal) { showToast("请填写起降机场"); return; }
-            if (!returnTimeStr) { showToast("请输入起飞时间"); return; }
-            
-            let parsedTime = parseTime4Digits(returnTimeStr);
-            if (!parsedTime.valid) { showToast("时间格式错误，如 1430 = 14:30"); return; }
-            
-            let returnDepDateTime = new Date(`${finalDate}T${parsedTime.hour}:${parsedTime.minute}:00`);
-            if (isNaN(returnDepDateTime.getTime())) { showToast("日期时间无效"); return; }
-            
-            let returnFlight = smartFlightNum(returnFlightNum);
-            saveFlight(finalDate, returnFlight, returnOriginVal, returnDestVal, returnDepDateTime.toISOString());
-            returnCard.classList.add('hidden');
-            showToast(`✅ 已添加回程航班 ${returnFlight}`);
-        };
-        
-        // 取消
-        let cancelBtn = document.getElementById('cancelReturnBtn');
-        let newCancelBtn = cancelBtn.cloneNode(true);
-        cancelBtn.parentNode.replaceChild(newCancelBtn, cancelBtn);
-        newCancelBtn.onclick = () => {
-            returnCard.classList.add('hidden');
-            showToast("已跳过，可稍后手动添加");
-        };
-        
-        // 自定义目的地
-        let applyBtn = document.getElementById('applyCustomDest');
-        let newApplyBtn = applyBtn.cloneNode(true);
-        applyBtn.parentNode.replaceChild(newApplyBtn, applyBtn);
-        newApplyBtn.onclick = () => {
-            let custom = document.getElementById('customDest').value.trim().toUpperCase();
-            if (custom && custom.length === 3) {
-                document.getElementById('returnDest').value = custom;
-                showToast(`目的地已改为 ${custom}`);
-            } else {
-                showToast("请输入正确的三字码");
-            }
-        };
     }
     
     function deleteFlight(date, id) {
         if (flightsDB[date]) {
             flightsDB[date] = flightsDB[date].filter(f => f.id != id);
             if (flightsDB[date].length === 0) delete flightsDB[date];
-            localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+            saveToCloud();
             renderCalendar();
             renderDayFlights();
-            syncToMainClock();
             showToast("🗑️ 已删除");
         }
     }
     
-    function syncToMainClock() {
-        let allFlights = [];
-        for (let date in flightsDB) {
-            for (let f of flightsDB[date]) allFlights.push(f);
-        }
-        if (allFlights.length === 0) return;
-        let now = new Date();
-        let future = allFlights.filter(f => new Date(f.departureTime) > now);
-        future.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
-        let active = future.length > 0 ? future[0] : allFlights[0];
-        if (active) {
-            let syncData = {
-                flightNumber: active.flightNumber,
-                origin: active.origin,
-                destination: active.destination,
-                departureTime: active.departureTime,
-                pickupTime: new Date(new Date(active.departureTime).getTime() - 135*60000).toISOString()
-            };
-            localStorage.setItem('last_flight', JSON.stringify(syncData));
-        }
-    }
-    
-    // 渲染日历
     function renderCalendar() {
         let firstDay = new Date(currentYear, currentMonth, 1);
         let lastDay = new Date(currentYear, currentMonth + 1, 0);
@@ -642,7 +525,6 @@
             document.getElementById('selectedDateDisplay').innerHTML = `📅 ${selectedDate}`;
             document.getElementById('previewCard').classList.add('hidden');
             document.getElementById('manualTimeDialog').classList.add('hidden');
-            document.getElementById('returnCard').classList.add('hidden');
             pendingFlightData = null;
         };
         return cell;
@@ -661,8 +543,7 @@
         }
         container.innerHTML = flights.map(f => {
             let dep = new Date(f.departureTime);
-            let tz = getTz(f.origin);
-            let localTime = formatTimeInTz(dep, tz);
+            let localTime = formatTimeInTz(dep, getTz(f.origin));
             let dubaiTime = formatTimeInTz(dep, DUBAI_TZ);
             return `
                 <div class="flight-item">
@@ -792,11 +673,6 @@
         pendingFlightData = null;
     }
     
-    try {
-        let saved = localStorage.getItem('flight_calendar_db');
-        if (saved) flightsDB = JSON.parse(saved);
-    } catch(e) {}
-    
     document.getElementById('prevMonthBtn').onclick = () => {
         currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
         renderCalendar();
@@ -811,11 +687,9 @@
     document.getElementById('confirmManualBtn').onclick = confirmManualAdd;
     document.getElementById('cancelManualBtn').onclick = cancelManual;
     document.getElementById('manualTimeInput').oninput = onManualTimeChange;
-    document.getElementById('syncBtn').onclick = () => { syncToMainClock(); showToast("✅ 已同步"); };
+    document.getElementById('syncBtn').onclick = () => { saveToCloud(); showToast("✅ 已同步到云端"); };
     
-    renderCalendar();
-    renderDayFlights();
+    loadFromCloud();
 </script>
 </body>
 </html>
-```
