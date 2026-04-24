@@ -3,66 +3,182 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>飞行时钟</title>
-    <style>
-        body { background: #000; color: #fff; font-family: monospace; height: 100vh; overflow: hidden; transition: all 1s; }
-        .layout { width: 100%; height: 100%; position: relative; }
-        .clock-text { font-weight: bold; position: absolute; transform: translate(-50%, -50%); }
-        .flight-bar { position: absolute; top: 20px; width: 100%; text-align: center; color: #ffaa44; font-size: 20px; }
-        .dual-container { display: flex; width: 100%; height: 100%; }
-        .panel { flex: 1; position: relative; border-right: 1px solid #333; }
+    <title>777 Captain Digital HUD</title>
+    <style id="dynamic-theme">
+        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
+        body { background: #000; color: #fff; font-family: 'SF Pro Display', sans-serif; height: 100vh; width: 100vw; overflow: hidden; transition: all 0.5s; }
+        .mode-container { position: relative; width: 100%; height: 100%; }
+        .dual-layout { display: flex; width: 100%; height: 100%; }
+        .dual-panel { flex: 1; position: relative; border-right: 1px solid rgba(255,255,255,0.1); }
+        .dual-panel:last-child { border-right: none; }
+        
+        .draggable { position: absolute; transform: translate(-50%, -50%); text-align: center; white-space: nowrap; }
+        .clock-text { font-weight: 700; }
+        
+        .flight-bar { position: absolute; top: 15px; left: 50%; transform: translateX(-50%); width: 90%; background: rgba(0,0,0,0.6); backdrop-filter: blur(15px); border-radius: 30px; padding: 10px 20px; font-size: 1.2rem; text-align: center; z-index: 100; border: 1px solid rgba(255,255,255,0.1); color: #ffaa44; font-weight: bold; }
+        .loading-overlay { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 9999; font-size: 1.2rem; }
     </style>
 </head>
 <body>
-    <div id="display"></div>
+<div id="app"></div>
 
 <script>
+    // 1. 云端配置 (与您的控制台/编辑器一致)
     const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
-    
-    async function refresh() {
+    const DUBAI_TZ = "Asia/Dubai";
+
+    // 2. 核心状态
+    let cloudConfig = null;   // 布局
+    let flightData = null;    // 航班
+    let currentMode = "";     // single, dual
+
+    // 3. 通讯跑通：从 Gist 抓取最新数据
+    async function syncFromCloud() {
         try {
             const resp = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`);
             const data = await resp.json();
-            const flight = JSON.parse(data.files['flight_data.json'].content);
-            const layout = JSON.parse(data.files['clock_layout.json'].content);
-            render(flight, layout);
-        } catch(e) { console.log("等待同步..."); }
-    }
-
-    function render(f, l) {
-        const box = document.getElementById('display');
-        const isDual = f && (new Date(f.std) - new Date() < 24 * 3600000); // 24小时内任务开启双屏
-
-        if(!isDual) {
-            box.innerHTML = `
-                <div class="layout">
-                    <div class="clock-text" id="t1" style="left:${l.clock.left}; top:${l.clock.top}; font-size:20vw">00:00</div>
-                </div>`;
-        } else {
-            box.innerHTML = `
-                <div class="flight-bar">✈️ ${f.flightNo} | ${f.dep} ➔ ${f.arr}</div>
-                <div class="dual-container">
-                    <div class="panel"><div class="clock-text" style="left:50%; top:50%; font-size:12vw" id="t1">00:00</div></div>
-                    <div class="panel"><div class="clock-text" style="left:50%; top:50%; font-size:12vw" id="t2">00:00</div></div>
-                </div>`;
-        }
-        startClocks(isDual, f ? f.std : null);
-    }
-
-    function startClocks(dual, std) {
-        if(window.timer) clearInterval(window.timer);
-        window.timer = setInterval(() => {
-            const now = new Date();
-            if(document.getElementById('t1')) document.getElementById('t1').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit', timeZone:'Asia/Dubai'});
-            if(dual && document.getElementById('t2')) {
-                // 模拟起飞机场时间（此处逻辑可根据AIRPORT_DB扩展）
-                document.getElementById('t2').innerText = now.toLocaleTimeString('en-GB', {hour:'2-digit', minute:'2-digit'});
+            
+            // 解析布局
+            if (data.files['clock_layout.json']) {
+                cloudConfig = JSON.parse(data.files['clock_layout.json'].content);
             }
-        }, 1000);
+            // 解析航班
+            if (data.files['flight_data.json']) {
+                flightData = JSON.parse(data.files['flight_data.json'].content);
+            }
+            
+            decideModeAndRender();
+        } catch (e) {
+            console.error("❌ 通讯异常:", e);
+        }
     }
 
-    refresh();
-    setInterval(refresh, 30000); // 30秒拉取一次云端
+    // 4. 逻辑引擎：决定显示模式
+    function decideModeAndRender() {
+        if (!flightData || !cloudConfig) return;
+
+        const now = new Date();
+        const std = new Date(flightData.std);
+        const timeToDep = std - now;
+
+        // 如果航班在 24 小时内起飞，或者起飞后 12 小时内，开启双屏
+        let newMode = (timeToDep < 86400000 && timeToDep > -43200000) ? "dual" : "single";
+
+        if (newMode !== currentMode) {
+            currentMode = newMode;
+            renderLayout();
+        }
+        updateContent();
+    }
+
+    // 5. 渲染引擎：应用布局配置
+    function renderLayout() {
+        const app = document.getElementById('app');
+        app.innerHTML = '';
+        const isDual = (currentMode === "dual");
+
+        if (!isDual) {
+            app.innerHTML = `
+                <div class="mode-container" id="single-view">
+                    <div class="draggable" id="clock-1"><div class="clock-text">00:00</div></div>
+                    <div class="draggable" id="date-1">DATE</div>
+                </div>`;
+            applyStyle('clock-1', cloudConfig.single.clock);
+            applyStyle('date-1', cloudConfig.single.date);
+        } else {
+            app.innerHTML = `
+                <div class="mode-container" id="dual-view">
+                    <div class="flight-bar">✈️ ${flightData.flightNo} | ${flightData.origin} ➔ ${flightData.dest}</div>
+                    <div class="dual-layout">
+                        <div class="dual-panel" id="panel-left">
+                            <div class="draggable" id="clock-l"><div class="clock-text">00:00</div></div>
+                            <div class="draggable" id="date-l">DATE</div>
+                        </div>
+                        <div class="dual-panel" id="panel-right">
+                            <div class="draggable" id="clock-r"><div class="clock-text">00:00</div></div>
+                            <div class="draggable" id="date-r">DATE</div>
+                        </div>
+                    </div>
+                </div>`;
+            // 双屏布局：左侧用单屏配置的变体或预设
+            applyStyle('clock-l', cloudConfig.dual.left.clock);
+            applyStyle('date-l', cloudConfig.dual.left.date);
+            applyStyle('clock-r', cloudConfig.dual.right.clock);
+            applyStyle('date-r', cloudConfig.dual.right.date);
+        }
+    }
+
+    // 将 Editor 传来的 CSS 属性应用到元素上
+    function applyStyle(id, style) {
+        const el = document.getElementById(id);
+        if (!el || !style) return;
+        el.style.left = style.left;
+        el.style.top = style.top;
+        if (style.fontSize) el.style.fontSize = style.fontSize;
+        if (style.letterSpacing) el.style.letterSpacing = style.letterSpacing;
+        
+        const txt = el.querySelector('.clock-text');
+        if (txt) {
+            txt.style.fontSize = style.fontSize;
+            txt.style.letterSpacing = style.letterSpacing;
+        }
+    }
+
+    // 6. 内容引擎：每秒更新时间
+    function updateContent() {
+        const now = new Date();
+        const options = { hour: '2-digit', minute: '2-digit', hour12: false };
+        const dateOptions = { weekday: 'long', month: 'short', day: 'numeric' };
+
+        if (currentMode === "single") {
+            const clockEl = document.querySelector('#clock-1 .clock-text');
+            const dateEl = document.getElementById('date-1');
+            if (clockEl) clockEl.innerText = now.toLocaleTimeString('en-GB', { ...options, timeZone: DUBAI_TZ });
+            if (dateEl) dateEl.innerText = now.toLocaleDateString('en-GB', { ...dateOptions, timeZone: DUBAI_TZ }).toUpperCase();
+        } else {
+            // 双屏：左侧迪拜，右侧目的地（这里目的地时区先用 UTC 占位，您可根据数据库扩展）
+            if (document.querySelector('#clock-l .clock-text')) {
+                document.querySelector('#clock-l .clock-text').innerText = now.toLocaleTimeString('en-GB', { ...options, timeZone: DUBAI_TZ });
+                document.getElementById('date-l').innerText = now.toLocaleDateString('en-GB', { ...dateOptions, timeZone: DUBAI_TZ }).toUpperCase();
+            }
+            if (document.querySelector('#clock-r .clock-text')) {
+                document.querySelector('#clock-r .clock-text').innerText = now.toLocaleTimeString('en-GB', { ...options }); // 目的地时间
+                document.getElementById('date-r').innerText = now.toLocaleDateString('en-GB', { ...dateOptions }).toUpperCase();
+            }
+        }
+        applyTheme();
+    }
+
+    // 7. 主题引擎：自动感应白天/黑夜
+    function applyTheme() {
+        const hour = new Date().toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', hour12: false });
+        const isDay = (hour >= 6 && hour < 18);
+        const colors = cloudConfig.colors;
+        
+        document.body.style.backgroundColor = isDay ? colors.dayBg : colors.nightBg;
+        document.body.style.color = isDay ? colors.dayText : colors.nightText;
+        
+        document.querySelectorAll('.clock-text').forEach(el => {
+            el.style.backgroundImage = `linear-gradient(135deg, ${colors.accentColor}, ${isDay ? colors.dayText : colors.nightText})`;
+            el.style.webkitBackgroundClip = 'text';
+            el.style.backgroundClip = 'text';
+            el.style.color = 'transparent';
+        });
+    }
+
+    // 初始化运行
+    window.onload = async () => {
+        const loading = document.createElement('div');
+        loading.className = 'loading-overlay';
+        loading.innerText = '✈️ 正在同步飞行仪表数据...';
+        document.body.appendChild(loading);
+        
+        await syncFromCloud();
+        loading.remove();
+        
+        setInterval(syncFromCloud, 30000); // 30秒同步一次云端
+        setInterval(updateContent, 1000);  // 1秒更新一次时间
+    };
 </script>
 </body>
 </html>
