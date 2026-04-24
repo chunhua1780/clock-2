@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
-    <title>航班控制台 · 智能时间输入</title>
+    <title>航班控制台 · 联程航班</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -12,10 +12,9 @@
             font-family: -apple-system, 'SF Pro Display', sans-serif;
             padding: 16px;
             min-height: 100vh;
-            padding-bottom: 100px;
         }
         .container { max-width: 550px; margin: 0 auto; }
-        h1 { font-size: 1.5rem; font-weight: 600; margin-bottom: 4px; color: #ffd966; }
+        h1 { font-size: 1.5rem; font-weight: 600; color: #ffd966; }
         .sub { font-size: 0.7rem; color: #88aacc; margin-bottom: 20px; }
         
         .month-nav {
@@ -62,45 +61,36 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            position: relative;
             border: 1px solid transparent;
         }
         .cal-day.today { border-color: #ffaa44; }
         .cal-day.has-flight { background: #2a3a2a; }
         .cal-day.selected { background: #ffaa44; color: #0a0e1a; }
         .cal-day .day-num { font-size: 1rem; font-weight: 500; }
-        .cal-day .flight-dot {
-            width: 6px;
-            height: 6px;
-            background: #66ffaa;
-            border-radius: 6px;
-            margin-top: 4px;
-        }
+        .cal-day .flight-dot { width: 6px; height: 6px; background: #66ffaa; border-radius: 6px; margin-top: 4px; }
         .cal-day.other-month { opacity: 0.3; }
         
-        .sidebar {
+        .input-panel {
             background: #11161f;
             border-radius: 24px;
             padding: 20px;
             margin-bottom: 20px;
         }
         .selected-date {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: 600;
             color: #ffd966;
             margin-bottom: 16px;
-            padding-bottom: 12px;
+            padding-bottom: 8px;
             border-bottom: 1px solid #2a3344;
         }
-        
-        .flight-input-area {
+        .flight-input-row {
             display: flex;
             gap: 12px;
             margin-bottom: 16px;
-            flex-wrap: wrap;
         }
-        .flight-input-area input {
-            flex: 2;
+        .flight-input-row input, .flight-input-row select {
+            flex: 1;
             background: #1a1f2e;
             border: 1px solid #334455;
             padding: 14px 16px;
@@ -110,64 +100,48 @@
             font-family: monospace;
             text-align: center;
         }
-        .flight-input-area button {
+        .flight-input-row select option { background: #1a1f2e; }
+        
+        .action-buttons {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .action-buttons button {
             flex: 1;
-            background: #ffaa44;
-            color: #0a0e1a;
-            border: none;
+            padding: 14px;
             border-radius: 40px;
             font-weight: bold;
             cursor: pointer;
-            padding: 14px 16px;
+            border: none;
         }
+        .search-btn { background: #ffaa44; color: #0a0e1a; }
+        .manual-btn { background: #2a6faa; color: white; }
+        .multi-btn { background: #6a2faa; color: white; }
         
-        .time-input-row {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 16px;
-        }
-        .time-input-row input {
-            flex: 1;
-            background: #1a1f2e;
-            border: 1px solid #334455;
-            padding: 14px 16px;
-            border-radius: 40px;
-            color: white;
-            font-size: 1rem;
-            font-family: monospace;
-            text-align: center;
-        }
-        .time-input-row input::placeholder { color: #556688; font-size: 0.8rem; }
-        
-        .manual-add-btn {
-            background: #2a6faa;
-            width: 100%;
-            margin-top: 0;
-        }
-        
-        .preview-card {
+        .preview-card, .multi-card {
             background: #1a2a3a;
             border-radius: 16px;
             padding: 12px;
-            margin-bottom: 16px;
+            margin-top: 12px;
             border: 1px solid #ffaa44;
         }
         .preview-title { font-size: 0.7rem; color: #ffaa66; margin-bottom: 6px; }
-        .preview-local { font-size: 0.8rem; margin-bottom: 4px; }
-        .preview-dubai { font-size: 0.8rem; color: #66ffaa; }
+        .preview-local { font-size: 0.85rem; margin-bottom: 4px; }
+        .preview-dubai { font-size: 0.85rem; color: #66ffaa; }
         .hidden { display: none; }
         
         .smart-tips {
             background: #1a1f2e;
             border-radius: 16px;
-            padding: 12px;
-            margin-bottom: 16px;
-            font-size: 0.7rem;
+            padding: 10px;
+            font-size: 0.65rem;
             color: #88aacc;
+            text-align: center;
         }
         .smart-tips span { color: #ffd966; }
         
-        .flight-list { max-height: 300px; overflow-y: auto; }
+        .flight-list { max-height: 250px; overflow-y: auto; margin-top: 16px; }
         .flight-item {
             background: #1a1f2e;
             border-radius: 16px;
@@ -175,18 +149,18 @@
             margin-bottom: 8px;
             border-left: 3px solid #ffaa44;
         }
-        .flight-num { font-weight: bold; color: #ffd966; font-size: 1rem; margin-bottom: 6px; }
-        .flight-time-local { font-size: 0.7rem; color: #aabbdd; margin-bottom: 4px; }
-        .flight-time-dubai { font-size: 0.7rem; color: #66ffaa; }
-        .delete-flight {
+        .flight-num { font-weight: bold; color: #ffd966; font-size: 0.95rem; margin-bottom: 6px; }
+        .flight-time { font-size: 0.7rem; color: #aabbdd; margin-bottom: 4px; }
+        .flight-dubai { font-size: 0.7rem; color: #66ffaa; }
+        .delete-btn {
             background: #aa4444;
             border: none;
             color: white;
-            padding: 6px 12px;
+            padding: 5px 12px;
             border-radius: 20px;
             cursor: pointer;
-            font-size: 0.7rem;
-            margin-top: 8px;
+            font-size: 0.65rem;
+            margin-top: 6px;
         }
         .empty-tip { text-align: center; color: #556688; padding: 20px; font-size: 0.8rem; }
         .sync-btn {
@@ -202,7 +176,7 @@
         }
         .toast {
             position: fixed;
-            bottom: 100px;
+            bottom: 80px;
             left: 20px;
             right: 20px;
             background: #ffaa44;
@@ -219,83 +193,148 @@
             70% { opacity: 1; }
             100% { opacity: 0; visibility: hidden; }
         }
+        .segment-item {
+            background: #1a2a3a;
+            border-radius: 16px;
+            padding: 12px;
+            margin-bottom: 10px;
+        }
+        .segment-row {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .segment-row input {
+            flex: 1;
+            background: #1a1f2e;
+            border: 1px solid #334455;
+            padding: 10px;
+            border-radius: 30px;
+            color: white;
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        .remove-seg {
+            background: #aa4444;
+            border: none;
+            padding: 6px 12px;
+            border-radius: 30px;
+            cursor: pointer;
+            color: white;
+        }
+        .add-seg {
+            background: #2a6faa;
+            border: none;
+            padding: 10px;
+            border-radius: 30px;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 8px;
+            color: white;
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <h1>✈️ 航班控制台</h1>
-    <div class="sub">输入4位数时间自动识别 · 显示当地+迪拜时间</div>
+    <div class="sub">点击日期 → 输入航班号 → 支持联程/多段航班</div>
     
     <div class="month-nav">
         <button id="prevMonthBtn">◀</button>
-        <span class="current-month" id="currentMonth">2024年1月</span>
+        <span class="current-month" id="currentMonth"></span>
         <button id="nextMonthBtn">▶</button>
     </div>
-    
     <div class="weekdays">
-        <div class="weekday">日</div><div class="weekday">一</div><div class="weekday">二</div>
-        <div class="weekday">三</div><div class="weekday">四</div><div class="weekday">五</div><div class="weekday">六</div>
+        <div class="weekday">SUN</div><div class="weekday">MON</div><div class="weekday">TUE</div>
+        <div class="weekday">WED</div><div class="weekday">THU</div><div class="weekday">FRI</div><div class="weekday">SAT</div>
     </div>
-    
     <div class="calendar-grid" id="calendarGrid"></div>
     
-    <div class="sidebar">
-        <div class="selected-date" id="selectedDateDisplay">📅 点击日期选择</div>
+    <div class="input-panel">
+        <div class="selected-date" id="selectedDateDisplay">📅 点击任意日期</div>
         
-        <!-- 手动输入区 -->
-        <div class="flight-input-area">
-            <input type="text" id="manualFlightNum" placeholder="航班号: 303" autocomplete="off">
+        <!-- 快速添加单班 -->
+        <div class="flight-input-row">
+            <input type="text" id="flightNumber" placeholder="航班号 (如 303 或 EK303)" autocomplete="off">
         </div>
-        <div class="time-input-row">
-            <input type="text" id="manualOrigin" placeholder="起飞机场 (如 PVG)" maxlength="3" style="text-transform:uppercase">
-            <input type="text" id="manualDest" placeholder="目的地 (如 DXB)" maxlength="3" style="text-transform:uppercase">
+        <div class="flight-input-row">
+            <input type="text" id="originAirport" placeholder="起飞机场 (DXB)" maxlength="3" style="text-transform:uppercase" autocomplete="off">
+            <input type="text" id="destAirport" placeholder="目的地机场 (PVG)" maxlength="3" style="text-transform:uppercase" autocomplete="off">
         </div>
-        <div class="time-input-row">
-            <input type="text" id="manualDate" placeholder="起飞日期 (2026-05-01)" autocomplete="off">
-            <input type="text" id="manualTime" placeholder="起飞时间 (1415 = 14:15)" autocomplete="off">
+        <div class="action-buttons">
+            <button class="search-btn" id="searchBtn">🔍 自动搜索</button>
+            <button class="manual-btn" id="manualTimeBtn">✏️ 手动输入时间</button>
+            <button class="multi-btn" id="multiSegmentBtn">✈️ 联程航班</button>
         </div>
         
         <div id="previewCard" class="preview-card hidden">
-            <div class="preview-title">📋 时间转换预览</div>
+            <div class="preview-title">📋 时间确认</div>
             <div class="preview-local" id="previewLocal">✈️ 当地时间: --:--</div>
             <div class="preview-dubai" id="previewDubai">🕐 迪拜时间: --:--</div>
+            <button id="confirmAddBtn" style="margin-top:10px; background:#ffaa44; border:none; padding:8px; border-radius:40px; font-weight:bold; cursor:pointer;">✅ 确认添加</button>
         </div>
         
-        <button id="manualAddBtn" class="manual-add-btn">📝 添加航班</button>
+        <div id="manualTimeDialog" class="preview-card hidden">
+            <div class="preview-title">✏️ 手动输入起飞时间</div>
+            <input type="text" id="manualTimeInput" placeholder="输入4位数 如 1430 = 14:30" style="width:100%; padding:12px; border-radius:40px; background:#1a1f2e; border:1px solid #334455; color:white; font-size:1rem; text-align:center; margin:10px 0;">
+            <div class="preview-local" id="manualPreviewLocal">✈️ 当地时间: --:--</div>
+            <div class="preview-dubai" id="manualPreviewDubai">🕐 迪拜时间: --:--</div>
+            <button id="confirmManualBtn" style="margin-top:10px; background:#2a6faa; border:none; padding:8px; border-radius:40px; font-weight:bold; cursor:pointer;">✅ 确认添加</button>
+            <button id="cancelManualBtn" style="margin-top:5px; background:#444; border:none; padding:8px; border-radius:40px; cursor:pointer;">取消</button>
+        </div>
+        
+        <!-- 联程航班面板 -->
+        <div id="multiSegmentCard" class="multi-card hidden">
+            <div class="preview-title">✈️ 联程航班 (可添加多段)</div>
+            <div id="segmentsContainer"></div>
+            <button id="addSegmentBtn" class="add-seg">+ 添加航段</button>
+            <button id="confirmMultiBtn" style="margin-top:10px; background:#ffaa44; border:none; padding:8px; border-radius:40px; font-weight:bold; cursor:pointer;">✅ 确认添加所有航段</button>
+            <button id="cancelMultiBtn" style="margin-top:5px; background:#444; border:none; padding:8px; border-radius:40px; cursor:pointer;">取消</button>
+        </div>
         
         <div class="smart-tips">
             💡 <span>303</span> → EK0303 &nbsp;&nbsp; <span>1415</span> → 14:15<br>
-            🕐 时间默认为起飞机场当地时间，自动换算迪拜时间
+            🕐 点击「联程航班」可输入多段行程 (如 PVG→DXB→AMS)
         </div>
         
-        <div id="dayFlightsList">
-            <div class="empty-tip">选择日期后显示当天航班</div>
+        <div id="flightListContainer">
+            <div class="empty-tip">✈️ 当天无航班<br>点击日期后添加</div>
         </div>
         
-        <button class="sync-btn" id="syncToClockBtn">🔄 同步到主时钟</button>
+        <button id="syncBtn" class="sync-btn">🔄 同步到主时钟</button>
     </div>
 </div>
 
 <script>
-    // 时区数据库
-    const airportTimezone = {
-        "DXB": "Asia/Dubai", "PVG": "Asia/Shanghai", "PEK": "Asia/Shanghai",
-        "CAN": "Asia/Shanghai", "SZX": "Asia/Shanghai", "HKG": "Asia/Hong_Kong",
-        "LHR": "Europe/London", "JFK": "America/New_York", "CDG": "Europe/Paris"
-    };
-    function getTz(code) { return airportTimezone[code] || "Asia/Shanghai"; }
-    
+    // ============================================================
+    // 配置
+    // ============================================================
+    const API_KEY = "b4bd321bbba1723162801cce3c455d7c";
     const DUBAI_TZ = "Asia/Dubai";
-    let flightsDB = {};
-    let currentYear = new Date().getFullYear();
-    let currentMonth = new Date().getMonth();
-    let selectedDate = null;
+    const DUBAI_AIRPORTS = ["DXB", "AUH", "SHJ", "DWC"];
     
-    // 辅助函数
+    const airportTimezone = {
+        "DXB": "Asia/Dubai", "AUH": "Asia/Dubai", "SHJ": "Asia/Dubai", "DWC": "Asia/Dubai",
+        "PVG": "Asia/Shanghai", "PEK": "Asia/Shanghai", "CAN": "Asia/Shanghai",
+        "SZX": "Asia/Shanghai", "HKG": "Asia/Hong_Kong", "LHR": "Europe/London",
+        "JFK": "America/New_York", "CDG": "Europe/Paris", "AMS": "Europe/Amsterdam",
+        "FRA": "Europe/Berlin", "SYD": "Australia/Sydney"
+    };
+    
+    function getTz(code) { return airportTimezone[code] || "Asia/Shanghai"; }
     function formatTimeInTz(date, tz) {
         return new Date(date).toLocaleTimeString('zh-CN', { timeZone: tz, hour: '2-digit', minute: '2-digit', hour12: false });
     }
     
+    let flightsDB = {};
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let selectedDate = null;
+    let pendingFlightData = null;
+    
+    // ============================================================
+    // 工具函数
+    // ============================================================
     function showToast(msg) {
         let toast = document.createElement('div');
         toast.className = 'toast';
@@ -304,7 +343,18 @@
         setTimeout(() => toast.remove(), 2000);
     }
     
-    // 解析4位数时间
+    function smartFlightNum(input) {
+        let num = input.toString().trim().toUpperCase();
+        if (/^[A-Z]{2,3}\d{2,4}$/.test(num)) return num;
+        if (/^\d+$/.test(num)) {
+            if (num.length === 4) return `EK${num}`;
+            if (num.length === 3) return `EK0${num}`;
+            if (num.length === 2) return `EK00${num}`;
+            return `EK${num}`;
+        }
+        return num;
+    }
+    
     function parseTime4Digits(str) {
         let s = str.toString().trim();
         if (/^\d{3,4}$/.test(s)) {
@@ -318,60 +368,28 @@
         return { valid: false };
     }
     
-    // 智能航班号
-    function smartFlightNum(input) {
-        let num = input.toString().trim().toUpperCase();
-        if (/^[A-Z]{2,3}\d{2,4}$/.test(num)) return num;
-        if (/^\d+$/.test(num)) {
-            if (num.length === 4) return `EK${num}`;
-            if (num.length === 3) return `EK0${num}`;
-            if (num.length === 2) return `EK00${num}`;
-            return `EK${num}`;
-        }
-        return num;
+    async function searchFlight(flightNumber) {
+        let fn = smartFlightNum(flightNumber);
+        try {
+            let url = `https://api.aviationstack.com/v1/flights?access_key=${API_KEY}&flight_iata=${fn}&limit=1`;
+            let resp = await fetch(url);
+            let data = await resp.json();
+            if (data.data && data.data.length > 0) {
+                let f = data.data[0];
+                return {
+                    found: true,
+                    flightNumber: f.flight.iata,
+                    origin: f.departure?.iata,
+                    destination: f.arrival?.iata,
+                    departureTime: f.departure?.scheduled ? new Date(f.departure.scheduled) : null
+                };
+            }
+        } catch(e) {}
+        return { found: false };
     }
     
-    // 预览更新
-    function updatePreview() {
-        let origin = document.getElementById('manualOrigin').value.trim().toUpperCase();
-        let timeStr = document.getElementById('manualTime').value.trim();
-        let dateStr = document.getElementById('manualDate').value.trim();
-        let preview = document.getElementById('previewCard');
-        
-        if (!origin || !timeStr || !dateStr) { preview.classList.add('hidden'); return; }
-        
-        let parsed = parseTime4Digits(timeStr);
-        if (!parsed.valid) { preview.classList.add('hidden'); return; }
-        
-        let tz = getTz(origin);
-        let dateTime = new Date(`${dateStr}T${parsed.hour}:${parsed.minute}:00`);
-        if (isNaN(dateTime.getTime())) { preview.classList.add('hidden'); return; }
-        
-        let localTime = formatTimeInTz(dateTime, tz);
-        let dubaiTime = formatTimeInTz(dateTime, DUBAI_TZ);
-        
-        document.getElementById('previewLocal').innerHTML = `✈️ ${origin}当地时间: ${localTime}`;
-        document.getElementById('previewDubai').innerHTML = `🕐 迪拜时间: ${dubaiTime}`;
-        preview.classList.remove('hidden');
-    }
-    
-    // 数据存储
-    function saveData() {
-        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
-        renderCalendar();
-        renderDayFlights();
-        syncToClock();
-    }
-    
-    function loadData() {
-        try { let saved = localStorage.getItem('flight_calendar_db'); if (saved) flightsDB = JSON.parse(saved); } catch(e) {}
-        renderCalendar();
-        renderDayFlights();
-    }
-    
-    function getFlights(date) { return flightsDB[date] || []; }
-    
-    function addFlight(date, flightNum, origin, dest, depTime) {
+    // 保存单班航班
+    function saveFlight(date, flightNum, origin, dest, depTime, skipReturnPopup = false) {
         if (!flightsDB[date]) flightsDB[date] = [];
         flightsDB[date].push({
             id: Date.now() + Math.random(),
@@ -380,83 +398,69 @@
             destination: dest,
             departureTime: depTime
         });
-        saveData();
+        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+        renderCalendar();
+        renderDayFlights();
         showToast(`✅ 已添加 ${flightNum}`);
+        syncToMainClock();
+    }
+    
+    // 批量保存多段航班
+    function saveMultiFlights(segments) {
+        for (let seg of segments) {
+            if (!seg.date || !seg.flightNum || !seg.origin || !seg.dest || !seg.depTime) continue;
+            if (!flightsDB[seg.date]) flightsDB[seg.date] = [];
+            flightsDB[seg.date].push({
+                id: Date.now() + Math.random() + Math.random(),
+                flightNumber: seg.flightNum,
+                origin: seg.origin,
+                destination: seg.dest,
+                departureTime: seg.depTime
+            });
+        }
+        localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+        renderCalendar();
+        renderDayFlights();
+        showToast(`✅ 已添加 ${segments.length} 段航班`);
+        syncToMainClock();
     }
     
     function deleteFlight(date, id) {
         if (flightsDB[date]) {
             flightsDB[date] = flightsDB[date].filter(f => f.id != id);
             if (flightsDB[date].length === 0) delete flightsDB[date];
-            saveData();
+            localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+            renderCalendar();
+            renderDayFlights();
+            syncToMainClock();
             showToast("🗑️ 已删除");
         }
     }
     
-    // 手动添加
-    function manualAdd() {
-        let useDate = selectedDate;
-        let manualDate = document.getElementById('manualDate').value.trim();
-        if (manualDate && /^\d{4}-\d{2}-\d{2}$/.test(manualDate)) useDate = manualDate;
-        if (!useDate) { showToast("请点击日历选择日期"); return; }
-        
-        let flightInput = document.getElementById('manualFlightNum').value.trim();
-        let origin = document.getElementById('manualOrigin').value.trim().toUpperCase();
-        let dest = document.getElementById('manualDest').value.trim().toUpperCase();
-        let timeStr = document.getElementById('manualTime').value.trim();
-        
-        if (!flightInput || !origin || !dest || !timeStr) { showToast("请填写完整信息"); return; }
-        
-        let parsed = parseTime4Digits(timeStr);
-        if (!parsed.valid) { showToast("时间格式错误，如 1415 = 14:15"); return; }
-        
-        let flightNum = smartFlightNum(flightInput);
-        let depDateTime = new Date(`${useDate}T${parsed.hour}:${parsed.minute}:00`);
-        if (isNaN(depDateTime.getTime())) { showToast("日期时间无效"); return; }
-        
-        let tz = getTz(origin);
-        let localTime = formatTimeInTz(depDateTime, tz);
-        let dubaiTime = formatTimeInTz(depDateTime, DUBAI_TZ);
-        
-        if (confirm(`确认添加航班 ${flightNum}\n\n🛫 ${origin} → ${dest}\n📅 ${useDate}\n✈️ 当地时间: ${localTime}\n🕐 迪拜时间: ${dubaiTime}`)) {
-            addFlight(useDate, flightNum, origin, dest, depDateTime.toISOString());
-            document.getElementById('manualFlightNum').value = '';
-            document.getElementById('manualOrigin').value = '';
-            document.getElementById('manualDest').value = '';
-            document.getElementById('manualDate').value = '';
-            document.getElementById('manualTime').value = '';
-            document.getElementById('previewCard').classList.add('hidden');
-        }
-    }
-    
-    // 同步到主时钟
-    function syncToClock() {
+    function syncToMainClock() {
         let allFlights = [];
         for (let date in flightsDB) {
             for (let f of flightsDB[date]) allFlights.push(f);
         }
-        if (allFlights.length === 0) { showToast("无航班可同步"); return; }
-        
+        if (allFlights.length === 0) return;
         let now = new Date();
         let future = allFlights.filter(f => new Date(f.departureTime) > now);
         future.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
         let active = future.length > 0 ? future[0] : allFlights[0];
-        
         if (active) {
             let syncData = {
                 flightNumber: active.flightNumber,
                 origin: active.origin,
                 destination: active.destination,
                 departureTime: active.departureTime,
-                pickupTime: new Date(new Date(active.departureTime).getTime() - 135*60000).toISOString()
+                pickupTime: new Date(new Date(active.departureTime).getTime() - 135*60000).toISOString(),
+                nextFlight: null
             };
             localStorage.setItem('last_flight', JSON.stringify(syncData));
-            localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
-            showToast("✅ 已同步");
         }
     }
     
-    // 日历渲染
+    // 渲染日历
     function renderCalendar() {
         let firstDay = new Date(currentYear, currentMonth, 1);
         let lastDay = new Date(currentYear, currentMonth + 1, 0);
@@ -466,8 +470,8 @@
         let grid = document.getElementById('calendarGrid');
         grid.innerHTML = '';
         
-        let monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-        document.getElementById('currentMonth').innerText = `${currentYear}年 ${monthNames[currentMonth]}`;
+        let monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        document.getElementById('currentMonth').innerText = `${monthNames[currentMonth]} ${currentYear}`;
         
         let today = new Date();
         let todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
@@ -524,19 +528,25 @@
             renderCalendar();
             renderDayFlights();
             document.getElementById('selectedDateDisplay').innerHTML = `📅 ${selectedDate}`;
+            document.getElementById('previewCard').classList.add('hidden');
+            document.getElementById('manualTimeDialog').classList.add('hidden');
+            document.getElementById('multiSegmentCard').classList.add('hidden');
+            pendingFlightData = null;
         };
         return cell;
     }
     
     function renderDayFlights() {
-        let container = document.getElementById('dayFlightsList');
-        if (!selectedDate) { container.innerHTML = '<div class="empty-tip">点击日历选择日期</div>'; return; }
-        
-        let flights = getFlights(selectedDate);
-        if (flights.length === 0) { container.innerHTML = '<div class="empty-tip">✈️ 当天无航班</div>'; return; }
-        
-        flights.sort((a,b) => new Date(a.departureTime) - new Date(b.departureTime));
-        
+        let container = document.getElementById('flightListContainer');
+        if (!selectedDate) {
+            container.innerHTML = '<div class="empty-tip">📅 点击日期选择</div>';
+            return;
+        }
+        let flights = flightsDB[selectedDate] || [];
+        if (flights.length === 0) {
+            container.innerHTML = '<div class="empty-tip">✈️ 当天无航班<br>点击「自动搜索」或「联程航班」添加</div>';
+            return;
+        }
         container.innerHTML = flights.map(f => {
             let dep = new Date(f.departureTime);
             let localTime = formatTimeInTz(dep, getTz(f.origin));
@@ -544,27 +554,271 @@
             return `
                 <div class="flight-item">
                     <div class="flight-num">✈️ ${f.flightNumber}  ${f.origin} → ${f.destination}</div>
-                    <div class="flight-time-local">✈️ 起飞 ${localTime} (${f.origin}当地时间)</div>
-                    <div class="flight-time-dubai">🕐 迪拜时间 ${dubaiTime}</div>
-                    <button class="delete-flight" onclick="deleteFlight('${selectedDate}', ${f.id})">删除</button>
+                    <div class="flight-time">🛫 ${f.origin}时间: ${localTime}</div>
+                    <div class="flight-dubai">🕐 迪拜时间: ${dubaiTime}</div>
+                    <button class="delete-btn" onclick="deleteFlight('${selectedDate}', ${f.id})">删除</button>
                 </div>
             `;
         }).join('');
     }
     
-    // 事件绑定
-    document.getElementById('prevMonthBtn').onclick = () => { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderCalendar(); };
-    document.getElementById('nextMonthBtn').onclick = () => { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderCalendar(); };
-    document.getElementById('manualAddBtn').onclick = manualAdd;
-    document.getElementById('syncToClockBtn').onclick = syncToClock;
+    // 单班自动搜索
+    async function doSearch() {
+        if (!selectedDate) { showToast("请先点击日期"); return; }
+        let flightNum = document.getElementById('flightNumber').value.trim();
+        let origin = document.getElementById('originAirport').value.trim().toUpperCase();
+        let dest = document.getElementById('destAirport').value.trim().toUpperCase();
+        
+        if (!flightNum) { showToast("请输入航班号"); return; }
+        if (!origin || !dest) { showToast("请输入起降机场"); return; }
+        
+        showToast("🔍 搜索中...");
+        let result = await searchFlight(flightNum);
+        
+        if (result.found && result.departureTime) {
+            let flightDate = result.departureTime.toISOString().split('T')[0];
+            if (flightDate !== selectedDate) {
+                showToast(`⚠️ 航班实际起飞日期是 ${flightDate}，已自动切换`);
+                selectedDate = flightDate;
+                renderCalendar();
+                document.getElementById('selectedDateDisplay').innerHTML = `📅 ${selectedDate}`;
+            }
+            pendingFlightData = {
+                flightNumber: result.flightNumber,
+                origin: result.origin,
+                destination: result.destination,
+                departureTime: result.departureTime
+            };
+            let localTime = formatTimeInTz(result.departureTime, getTz(result.origin));
+            let dubaiTime = formatTimeInTz(result.departureTime, DUBAI_TZ);
+            document.getElementById('previewLocal').innerHTML = `✈️ 起飞 ${localTime} (${result.origin}当地时间)`;
+            document.getElementById('previewDubai').innerHTML = `🕐 迪拜时间 ${dubaiTime}`;
+            document.getElementById('previewCard').classList.remove('hidden');
+            document.getElementById('manualTimeDialog').classList.add('hidden');
+            document.getElementById('multiSegmentCard').classList.add('hidden');
+        } else {
+            showToast("❌ 未找到航班，请使用手动输入或联程航班");
+        }
+    }
     
-    document.getElementById('manualOrigin').oninput = function() { this.value = this.value.toUpperCase(); updatePreview(); };
-    document.getElementById('manualTime').oninput = updatePreview;
-    document.getElementById('manualDate').oninput = updatePreview;
+    function confirmAdd() {
+        if (!pendingFlightData || !selectedDate) return;
+        saveFlight(
+            selectedDate,
+            pendingFlightData.flightNumber,
+            pendingFlightData.origin,
+            pendingFlightData.destination,
+            pendingFlightData.departureTime.toISOString()
+        );
+        document.getElementById('previewCard').classList.add('hidden');
+        document.getElementById('flightNumber').value = '';
+        document.getElementById('originAirport').value = '';
+        document.getElementById('destAirport').value = '';
+        pendingFlightData = null;
+    }
     
-    document.getElementById('manualTime').onkeypress = (e) => { if (e.key === 'Enter') manualAdd(); };
+    function showManualDialog() {
+        if (!selectedDate) { showToast("请先点击日期"); return; }
+        let flightNum = document.getElementById('flightNumber').value.trim();
+        let origin = document.getElementById('originAirport').value.trim().toUpperCase();
+        let dest = document.getElementById('destAirport').value.trim().toUpperCase();
+        
+        if (!flightNum) { showToast("请输入航班号"); return; }
+        if (!origin || !dest) { showToast("请输入起降机场"); return; }
+        
+        pendingFlightData = {
+            flightNumber: smartFlightNum(flightNum),
+            origin: origin,
+            destination: dest,
+            departureTime: null
+        };
+        
+        document.getElementById('manualTimeInput').value = '';
+        document.getElementById('manualPreviewLocal').innerHTML = `✈️ 当地时间: --:--`;
+        document.getElementById('manualPreviewDubai').innerHTML = `🕐 迪拜时间: --:--`;
+        document.getElementById('previewCard').classList.add('hidden');
+        document.getElementById('multiSegmentCard').classList.add('hidden');
+        document.getElementById('manualTimeDialog').classList.remove('hidden');
+    }
     
-    loadData();
+    function onManualTimeChange() {
+        let timeStr = document.getElementById('manualTimeInput').value.trim();
+        if (!timeStr || !pendingFlightData) return;
+        let parsed = parseTime4Digits(timeStr);
+        if (!parsed.valid) {
+            document.getElementById('manualPreviewLocal').innerHTML = `✈️ 格式错误，请输入4位数如 1430`;
+            return;
+        }
+        let depDateTime = new Date(`${selectedDate}T${parsed.hour}:${parsed.minute}:00`);
+        if (isNaN(depDateTime.getTime())) return;
+        let localTime = formatTimeInTz(depDateTime, getTz(pendingFlightData.origin));
+        let dubaiTime = formatTimeInTz(depDateTime, DUBAI_TZ);
+        document.getElementById('manualPreviewLocal').innerHTML = `✈️ 起飞 ${localTime} (${pendingFlightData.origin}当地时间)`;
+        document.getElementById('manualPreviewDubai').innerHTML = `🕐 迪拜时间 ${dubaiTime}`;
+        pendingFlightData.departureTime = depDateTime;
+    }
+    
+    function confirmManualAdd() {
+        if (!pendingFlightData || !pendingFlightData.departureTime || !selectedDate) {
+            showToast("请先输入起飞时间");
+            return;
+        }
+        saveFlight(
+            selectedDate,
+            pendingFlightData.flightNumber,
+            pendingFlightData.origin,
+            pendingFlightData.destination,
+            pendingFlightData.departureTime.toISOString()
+        );
+        document.getElementById('manualTimeDialog').classList.add('hidden');
+        document.getElementById('flightNumber').value = '';
+        document.getElementById('originAirport').value = '';
+        document.getElementById('destAirport').value = '';
+        pendingFlightData = null;
+    }
+    
+    function cancelManual() {
+        document.getElementById('manualTimeDialog').classList.add('hidden');
+        pendingFlightData = null;
+    }
+    
+    // ============================================================
+    // 联程航班逻辑
+    // ============================================================
+    let multiSegments = [];
+    
+    function renderSegments() {
+        let container = document.getElementById('segmentsContainer');
+        if (multiSegments.length === 0) {
+            container.innerHTML = '<div class="empty-tip" style="padding:10px;">添加航段，如: PVG → DXB → AMS</div>';
+            return;
+        }
+        container.innerHTML = multiSegments.map((seg, idx) => `
+            <div class="segment-item">
+                <div class="segment-row">
+                    <input type="text" placeholder="航班号 (如 303)" value="${seg.flightNum}" data-idx="${idx}" data-field="flightNum">
+                    <input type="text" placeholder="起飞机场" value="${seg.origin}" data-idx="${idx}" data-field="origin" style="text-transform:uppercase">
+                    <input type="text" placeholder="目的地" value="${seg.dest}" data-idx="${idx}" data-field="dest" style="text-transform:uppercase">
+                </div>
+                <div class="segment-row">
+                    <input type="date" placeholder="起飞日期" value="${seg.date}" data-idx="${idx}" data-field="date">
+                    <input type="text" placeholder="起飞时间 (1430)" value="${seg.time}" data-idx="${idx}" data-field="time">
+                    <button class="remove-seg" data-idx="${idx}">删除</button>
+                </div>
+            </div>
+        `).join('');
+        
+        // 绑定事件
+        document.querySelectorAll('[data-field]').forEach(el => {
+            el.onchange = (e) => {
+                let idx = parseInt(el.dataset.idx);
+                let field = el.dataset.field;
+                multiSegments[idx][field] = el.value;
+            };
+        });
+        document.querySelectorAll('.remove-seg').forEach(btn => {
+            btn.onclick = (e) => {
+                let idx = parseInt(btn.dataset.idx);
+                multiSegments.splice(idx, 1);
+                renderSegments();
+            };
+        });
+    }
+    
+    function showMultiSegment() {
+        if (!selectedDate) { showToast("请先点击日期"); return; }
+        // 初始化默认航段
+        multiSegments = [{
+            flightNum: '',
+            origin: document.getElementById('originAirport').value.trim().toUpperCase() || 'PVG',
+            dest: document.getElementById('destAirport').value.trim().toUpperCase() || 'DXB',
+            date: selectedDate,
+            time: ''
+        }];
+        renderSegments();
+        document.getElementById('multiSegmentCard').classList.remove('hidden');
+        document.getElementById('previewCard').classList.add('hidden');
+        document.getElementById('manualTimeDialog').classList.add('hidden');
+    }
+    
+    function confirmMultiFlights() {
+        let validSegments = [];
+        for (let seg of multiSegments) {
+            if (!seg.flightNum || !seg.origin || !seg.dest || !seg.date || !seg.time) {
+                showToast("请填写完整航段信息");
+                return;
+            }
+            let parsedTime = parseTime4Digits(seg.time);
+            if (!parsedTime.valid) {
+                showToast(`时间格式错误: ${seg.time}，应为4位数如1430`);
+                return;
+            }
+            let depDateTime = new Date(`${seg.date}T${parsedTime.hour}:${parsedTime.minute}:00`);
+            if (isNaN(depDateTime.getTime())) {
+                showToast("日期时间无效");
+                return;
+            }
+            validSegments.push({
+                date: seg.date,
+                flightNum: smartFlightNum(seg.flightNum),
+                origin: seg.origin.toUpperCase(),
+                dest: seg.dest.toUpperCase(),
+                depTime: depDateTime.toISOString()
+            });
+        }
+        saveMultiFlights(validSegments);
+        document.getElementById('multiSegmentCard').classList.add('hidden');
+        document.getElementById('originAirport').value = '';
+        document.getElementById('destAirport').value = '';
+        document.getElementById('flightNumber').value = '';
+        multiSegments = [];
+    }
+    
+    function cancelMulti() {
+        document.getElementById('multiSegmentCard').classList.add('hidden');
+        multiSegments = [];
+    }
+    
+    document.getElementById('addSegmentBtn').onclick = () => {
+        let last = multiSegments[multiSegments.length - 1];
+        let newOrigin = last ? last.dest : 'DXB';
+        multiSegments.push({
+            flightNum: '',
+            origin: newOrigin,
+            dest: '',
+            date: selectedDate,
+            time: ''
+        });
+        renderSegments();
+    };
+    
+    // 加载数据
+    try {
+        let saved = localStorage.getItem('flight_calendar_db');
+        if (saved) flightsDB = JSON.parse(saved);
+    } catch(e) {}
+    
+    document.getElementById('prevMonthBtn').onclick = () => {
+        currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; }
+        renderCalendar();
+    };
+    document.getElementById('nextMonthBtn').onclick = () => {
+        currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; }
+        renderCalendar();
+    };
+    document.getElementById('searchBtn').onclick = doSearch;
+    document.getElementById('manualTimeBtn').onclick = showManualDialog;
+    document.getElementById('multiSegmentBtn').onclick = showMultiSegment;
+    document.getElementById('confirmAddBtn').onclick = confirmAdd;
+    document.getElementById('confirmManualBtn').onclick = confirmManualAdd;
+    document.getElementById('cancelManualBtn').onclick = cancelManual;
+    document.getElementById('confirmMultiBtn').onclick = confirmMultiFlights;
+    document.getElementById('cancelMultiBtn').onclick = cancelMulti;
+    document.getElementById('manualTimeInput').oninput = onManualTimeChange;
+    document.getElementById('syncBtn').onclick = () => { syncToMainClock(); showToast("✅ 已同步"); };
+    
+    renderCalendar();
+    renderDayFlights();
 </script>
 </body>
 </html>
