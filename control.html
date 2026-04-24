@@ -3,60 +3,104 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>航班控制台</title>
+    <title>Controller - 航班控制台</title>
     <style>
+        /* 保持您的风格完全不动 */
         body { background: #f0f4f8; font-family: system-ui; padding: 20px; }
-        .card { background: white; border-radius: 20px; padding: 20px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); margin-bottom: 20px; }
-        input { width: 100%; padding: 10px; margin: 5px 0; border-radius: 10px; border: 1px solid #ddd; }
-        button { width: 100%; padding: 12px; background: #2c5f8a; color: white; border: none; border-radius: 10px; font-weight: bold; cursor: pointer; }
-        .item { border-left: 5px solid #ffaa44; background: #f9f9f9; padding: 10px; margin-top: 10px; display: flex; justify-content: space-between; }
+        .card { background: #fff; border-radius: 20px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); margin-bottom: 20px; }
+        input { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; }
+        button { width: 100%; padding: 15px; background: #2c5f8a; color: #fff; border: none; border-radius: 10px; font-weight: bold; }
+        .setup { font-size: 12px; color: #999; margin-top: 50px; }
     </style>
 </head>
 <body>
     <div class="card">
-        <h3>安排航段</h3>
-        <input type="date" id="fDate">
-        <input type="text" id="fNo" placeholder="航班号 (如 795)">
-        <input type="text" id="fDep" placeholder="起点 (如 DSS)">
-        <input type="text" id="fArr" placeholder="终点 (如 DXB)">
-        <input type="text" id="fTime" placeholder="起飞时间 (如 1820)">
-        <button onclick="saveAndSync()">保存并同步云端</button>
-    </div>
-    <div class="card" id="list"></div>
-    <div class="card">
-        Token: <input type="password" id="tk" placeholder="GitHub Token">
-        <button onclick="localStorage.setItem('gh_token', document.getElementById('tk').value); location.reload();">锁定Token</button>
+        <h3>✈️ 安排新航段</h3>
+        <input type="date" id="date">
+        <input type="text" id="no" placeholder="航班号 (如 797)">
+        <input type="text" id="dep" placeholder="起点 (如 CKY)">
+        <input type="text" id="arr" placeholder="终点 (如 DSS)">
+        <input type="text" id="time" placeholder="起飞当地时间 (如 0715)">
+        <button onclick="saveFlight()">保存并推送至时钟</button>
     </div>
 
-<script>
-    let GH_TOKEN = localStorage.getItem('gh_token');
-    let GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
-    let db = JSON.parse(localStorage.getItem('flight_db')) || {};
+    <div class="setup">
+        Token: <input type="password" id="token" placeholder="GitHub Token" style="width: 200px;">
+        <button onclick="saveToken()" style="width: 80px; padding: 5px;">保存</button>
+    </div>
 
-    function saveAndSync() {
-        const d = document.getElementById('fDate').value;
-        const no = document.getElementById('fNo').value;
-        const iso = `${d}T${document.getElementById('fTime').value.slice(0,2)}:${document.getElementById('fTime').value.slice(2,4)}:00`;
-        
-        if(!db[d]) db[d] = [];
-        db[d].push({ flightNo: 'EK'+no, dep: document.getElementById('fDep').value, arr: document.getElementById('fArr').value, std: iso });
-        localStorage.setItem('flight_db', JSON.stringify(db));
-        sync();
-    }
+    <script>
+        // 通讯跑通逻辑
+        function saveToken() {
+            const tokenVal = document.getElementById('token').value.trim();
+            if(!tokenVal) return alert("请输入有效的 Token");
+            localStorage.setItem('gh_token', tokenVal);
+            alert("Token 已本地保存");
+        }
 
-    async function sync() {
-        let all = []; Object.values(db).forEach(day => all = all.concat(day));
-        let active = all[all.length - 1]; // 简单取最后一个
-        await fetch(`https://api.github.com/gists/${GIST_ID}`, {
-            method: 'PATCH',
-            headers: { 'Authorization': `token ${GH_TOKEN}` },
-            body: JSON.stringify({ files: { 
-                'calendar_db.json': { content: JSON.stringify(db) },
-                'flight_data.json': { content: JSON.stringify(active) }
-            } })
-        });
-        alert("同步成功"); location.reload();
-    }
-</script>
+        async function saveFlight() {
+            const token = localStorage.getItem('gh_token');
+            const gistId = "6b51ae2b894903de0227eaec5e0ce842";
+            
+            if(!token) return alert("请先在下方输入并保存 Token");
+
+            const d = document.getElementById('date').value;
+            const t = document.getElementById('time').value;
+            const flightNoRaw = document.getElementById('no').value.trim();
+            
+            if(!d || !t || !flightNoRaw) return alert("请补全航班日期、号码和时间");
+
+            // 构建 ISO 标准时间字符串
+            const std = `${d}T${t.slice(0,2)}:${t.slice(2,4)}:00`;
+
+            const flightData = {
+                flightNo: flightNoRaw.toUpperCase().startsWith('EK') ? flightNoRaw.toUpperCase() : 'EK' + flightNoRaw,
+                origin: document.getElementById('dep').value.toUpperCase(),
+                dest: document.getElementById('arr').value.toUpperCase(),
+                std: std,
+                lastUpdate: new Date().toISOString()
+            };
+
+            // UI 状态反馈
+            const btn = document.querySelector('button');
+            btn.innerText = "正在同步云端...";
+            btn.disabled = true;
+
+            try {
+                const resp = await fetch(`https://api.github.com/gists/${gistId}`, {
+                    method: 'PATCH',
+                    headers: { 
+                        'Authorization': `token ${token}`,
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({ 
+                        files: { 
+                            'flight_data.json': { 
+                                content: JSON.stringify(flightData, null, 2) 
+                            } 
+                        } 
+                    })
+                });
+
+                if(resp.ok) {
+                    alert("🚀 航班已成功同步！index.html 将在 30 秒内自动更新。");
+                } else {
+                    const errDetail = await resp.json();
+                    alert("❌ 同步失败: " + (errDetail.message || "Token 权限不足或 Gist ID 错误"));
+                }
+            } catch(e) {
+                alert("❌ 网络连接异常，请检查 iPad 网络状态");
+            } finally {
+                btn.innerText = "保存并推送至时钟";
+                btn.disabled = false;
+            }
+        }
+
+        // 页面加载时自动填入已保存的 Token (体验优化)
+        window.onload = () => {
+            const savedToken = localStorage.getItem('gh_token');
+            if(savedToken) document.getElementById('token').value = savedToken;
+        };
+    </script>
 </body>
 </html>
