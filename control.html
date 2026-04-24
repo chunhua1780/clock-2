@@ -2,125 +2,109 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>EK 控制面板</title>
     <style>
-        body { font-family: system-ui; background: #f4f4f4; padding: 15px; }
-        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .grid-style { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
-        .style-btn { border: 1px solid #ddd; padding: 10px 5px; font-size: 10px; border-radius: 5px; background: #fff; }
-        .style-btn.active { background: #007aff; color: white; border-color: #007aff; }
-        input, select { width: 100%; padding: 12px; margin-top: 5px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; }
-        .btn-push { background: #34c759; color: white; padding: 15px; width: 100%; border-radius: 10px; border: none; font-size: 18px; font-weight: bold; margin-top: 10px; }
-        #token-area { background: #fff3cd; padding: 10px; border-radius: 8px; margin-bottom: 15px; font-size: 12px; }
+        :root { --p: #007aff; --s: #34c759; --bg: #f2f2f7; }
+        body { font-family: system-ui; background: var(--bg); margin: 0; padding: 15px; }
+        .card { background: white; border-radius: 12px; padding: 15px; margin-bottom: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        input, select, textarea { width: 100%; padding: 12px; margin: 8px 0; border: 1px solid #ddd; border-radius: 10px; font-size: 16px; box-sizing: border-box; }
+        input[type="date"] { font-size: 20px; font-weight: bold; color: var(--p); }
+        .btn-main { background: var(--s); color: white; border: none; padding: 18px; width: 100%; border-radius: 12px; font-size: 18px; font-weight: bold; }
+        .modal { display: none; position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); align-items:center; justify-content:center; z-index:100; }
+        .modal-box { background: white; width: 85%; padding: 20px; border-radius: 20px; }
+        .flight-row { border: 1px solid #eee; padding: 10px; border-radius: 8px; margin-top: 8px; cursor: pointer; }
+        .style-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 5px; }
+        .s-btn { border: 1px solid #ddd; padding: 10px 0; border-radius: 8px; background: #fff; font-size: 11px; }
+        .s-btn.active { background: var(--p); color: white; }
     </style>
 </head>
 <body>
 
-<div id="token-area">
-    🔑 TOKEN: <span id="tk-status">未设置</span> 
-    <button onclick="setToken()" style="float:right">设置</button>
+<div class="card">
+    <label>📅 1. 选择飞行日期</label>
+    <input type="date" id="f_date" onchange="openSearch()">
 </div>
 
 <div class="card">
-    <label><b>1. 风格选择 (20+ Style)</b></label>
-    <div class="grid-style" id="style-picker">
-        </div>
+    <label>✈️ 2. 核心参数确认</label>
+    <div style="display: flex; gap: 8px;">
+        <input type="text" id="dep" placeholder="DXB" oninput="this.value=this.value.toUpperCase()">
+        <input type="text" id="arr" placeholder="PVG" oninput="this.value=this.value.toUpperCase()">
+    </div>
+    <input type="tel" id="std_time" placeholder="输入4位时间, 如 0830" maxlength="4" onblur="formatTime(this)">
+    <textarea id="notam" placeholder="输入 NOTAM / 风险文字..."></textarea>
 </div>
 
 <div class="card">
-    <label><b>2. 航班搜索</b></label>
-    <input type="text" id="f_no" placeholder="输入 493 或 8493">
-    <button onclick="searchFlight()" style="margin-top:5px; width:100%; padding:8px">搜索并自动填充</button>
-    <div id="results" style="display:none; background:#e9ecef; padding:10px; border-radius:5px; margin-top:5px;"></div>
+    <label>🎨 3. 20 种风格面板选择</label>
+    <div class="style-grid" id="style-picker"></div>
 </div>
 
-<div class="card">
-    <label>起飞 IATA (自动大写)</label>
-    <input type="text" id="f_dep" oninput="this.value=this.value.toUpperCase()">
-    <label>到达 IATA</label>
-    <input type="text" id="f_arr" oninput="this.value=this.value.toUpperCase()">
-    <label>状态</label>
-    <select id="f_status">
-        <option value="scheduled">计划 (Scheduled)</option>
-        <option value="airborne">起飞 (Airborne)</option>
-        <option value="layover">驻留 (Layover)</option>
-    </select>
-    <label><input type="checkbox" id="is_layover"> 开启双时区 Layover 模式</label>
-</div>
+<input type="password" id="tk" placeholder="粘贴 GitHub Token" style="margin-bottom:15px;">
+<button class="btn-main" onclick="sync()">🚀 一键同步到 iPad</button>
 
-<button class="btn-push" onclick="pushToiPad()">🚀 同步到 iPad</button>
+<div class="modal" id="searchModal">
+    <div class="modal-box">
+        <h3>智能航班检索 (EK 默认)</h3>
+        <input type="tel" id="f_no" placeholder="输入航班号, 如 302">
+        <button onclick="doSearch()" style="width:100%; padding:12px; background:var(--p); color:white; border:none; border-radius:8px;">查询相关 EK 航班</button>
+        <div id="results" style="max-height:200px; overflow-y:auto; margin-top:10px;"></div>
+        <button onclick="closeModal()" style="width:100%; border:none; background:none; color:gray; margin-top:10px;">取消</button>
+    </div>
+</div>
 
 <script>
-    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
-    const AVI_KEY = "b4bd321bbba1723162801cce3c455d7c";
-    let selectedStyle = 'github';
+    const CONFIG = { avi: 'b4bd321bbba1723162801cce3c455d7c', gist: '6b51ae2b894903de0227eaec5e0ce842' };
+    let curStyle = 'style-1';
 
-    // 初始化 20 个风格按钮
-    const picker = document.getElementById('style-picker');
-    for(let i=1; i<=20; i++) {
+    // 初始化20种风格
+    const p = document.getElementById('style-picker');
+    for(let i=1; i<=20; i++){
         const b = document.createElement('button');
-        b.className = 'style-btn';
-        b.innerText = '风格 ' + i;
-        b.onclick = () => {
-            document.querySelectorAll('.style-btn').forEach(x => x.classList.remove('active'));
-            b.classList.add('active');
-            selectedStyle = 'style-' + i;
-        };
-        picker.appendChild(b);
+        b.className = i===1?'s-btn active':'s-btn'; b.innerText = '风格'+i;
+        b.onclick = () => { document.querySelectorAll('.s-btn').forEach(x=>x.classList.remove('active')); b.classList.add('active'); curStyle='style-'+i; };
+        p.appendChild(b);
     }
 
-    function setToken() {
-        const t = prompt("请输入你的 GitHub Token (6b51...):");
-        if(t) { localStorage.setItem('my_tk', t); location.reload(); }
-    }
+    function openSearch(){ document.getElementById('searchModal').style.display='flex'; }
+    function closeModal(){ document.getElementById('searchModal').style.display='none'; }
+    function formatTime(i){ if(i.value.length===4 && !i.value.includes(':')) i.value = i.value.substring(0,2)+":"+i.value.substring(2,4); }
 
-    if(localStorage.getItem('my_tk')) document.getElementById('tk-status').innerText = "已就绪";
-
-    async function searchFlight() {
+    async function doSearch(){
         let no = document.getElementById('f_no').value.toUpperCase();
-        if(!no) return;
-        let query = isNaN(no) ? no : "EK" + no;
-        const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${AVI_KEY}&flight_iata=${query}`);
+        let query = no.startsWith('EK') ? no : 'EK' + no;
+        const res = await fetch(`https://api.aviationstack.com/v1/flights?access_key=${CONFIG.avi}&flight_iata=${query}`);
         const json = await res.json();
-        const resDiv = document.getElementById('results');
-        resDiv.innerHTML = "";
-        resDiv.style.display = 'block';
-
-        if(json.data && json.data.length > 0) {
+        const rBox = document.getElementById('results');
+        rBox.innerHTML = "";
+        if(json.data && json.data.length > 0){
             json.data.forEach(f => {
-                const d = document.createElement('div');
-                d.style.padding = '10px';
-                d.style.borderBottom = '1px solid #ccc';
-                d.innerHTML = `${f.departure.iata} ➔ ${f.arrival.iata} (点此填充)`;
-                d.onclick = () => {
-                    document.getElementById('f_dep').value = f.departure.iata;
-                    document.getElementById('f_arr').value = f.arrival.iata;
-                    resDiv.style.display = 'none';
+                const row = document.createElement('div');
+                row.className = 'flight-row';
+                row.innerHTML = `<b>${f.departure.iata} ➔ ${f.arrival.iata}</b><br><small>STD: ${f.departure.scheduled.substring(11,16)}</small>`;
+                row.onclick = () => {
+                    document.getElementById('dep').value = f.departure.iata;
+                    document.getElementById('arr').value = f.arrival.iata;
+                    document.getElementById('std_time').value = f.departure.scheduled.substring(11,16);
+                    closeModal();
                 };
-                resDiv.appendChild(d);
+                rBox.appendChild(row);
             });
-        } else if(no.length > 3) {
-            document.getElementById('f_no').value = no.slice(-3); // 自动截取后三位重试
-            searchFlight();
-        }
+        } else { rBox.innerText = "未找到该 EK 航班"; }
     }
 
-    async function pushToiPad() {
-        const token = localStorage.getItem('my_tk');
-        if(!token) return setToken();
-
+    async function sync(){
+        const token = document.getElementById('tk').value;
         const payload = {
-            style: selectedStyle,
-            flightNo: document.getElementById('f_no').value,
-            dep: document.getElementById('f_dep').value,
-            arr: document.getElementById('f_arr').value,
-            status: document.getElementById('f_status').value,
-            isLayover: document.getElementById('is_layover').checked,
-            std: new Date().toISOString()
+            style: curStyle,
+            dep: document.getElementById('dep').value,
+            arr: document.getElementById('arr').value,
+            std: document.getElementById('f_date').value + " " + document.getElementById('std_time').value,
+            notam: document.getElementById('notam').value,
+            isLayover: false
         };
-
-        const res = await fetch(`https://api.github.com/gists/${GIST_ID}`, {
+        const res = await fetch(`https://api.github.com/gists/${CONFIG.gist}`, {
             method: "PATCH",
             headers: { "Authorization": `token ${token}` },
             body: JSON.stringify({ files: { "flight_data.json": { content: JSON.stringify(payload) } } })
