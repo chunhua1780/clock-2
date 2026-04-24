@@ -2,123 +2,236 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pilot HUD Pro</title>
-    <style id="theme-engine">
-        /* 默认第1种风格 (GitHub Dark) */
-        :root { --bg: #050505; --text: #e0e0e0; --accent: #58a6ff; --danger: #f85149; }
-        body { margin: 0; background: var(--bg); color: var(--text); font-family: -apple-system, sans-serif; overflow: hidden; height: 100vh; }
-        #top-hud { height: 25vh; border-bottom: 2px solid #222; display: none; grid-template-columns: 1.2fr 1fr 1.2fr; padding: 20px; gap: 15px; }
-        #main-hud { height: 75vh; display: flex; align-items: center; justify-content: center; position: relative; }
-        #main-hud.full { height: 100vh; }
-        .clock-heavy { font-size: 28vw; font-weight: 800; line-height: 0.8; letter-spacing: -12px; }
-        .date-flat { position: absolute; bottom: 30px; width: 100%; text-align: center; font-size: 2.2vw; letter-spacing: 10px; color: #666; text-transform: uppercase; }
-        .wx-corner { position: absolute; top: 20px; right: 40px; text-align: right; }
-        .w-icon { font-size: 6vw; }
-        .w-temp { font-size: 3.5vw; color: var(--accent); }
-        .prog-bar { grid-column: span 3; height: 10px; background: #1a1a1a; border-radius: 5px; margin-top: 15px; overflow: hidden; }
-        #bar-active { height: 100%; width: 0%; background: var(--accent); transition: width 1s linear; }
-        .split-view { display: none; width: 100%; height: 100%; grid-template-columns: 1fr 1fr; }
-        .pane { display: flex; flex-direction: column; align-items: center; justify-content: center; border-right: 1px solid #222; }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>航班时钟 · 智能 HUD 终端</title>
+    <style id="dynamic-style">
+        /* 默认基础风格 */
+        :root { --bg: #eef2f5; --text: #2c5f8a; --accent: #ffaa44; }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: var(--bg); 
+            color: var(--text); 
+            font-family: -apple-system, 'SF Pro Display', sans-serif; 
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1); 
+            overflow: hidden; 
+            height: 100vh; 
+        }
+        
+        /* 1/4 航空墙 HUD 区域 */
+        .hud-header {
+            height: 25vh;
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            display: none; /* 默认隐藏，有航班时显示 */
+            grid-template-columns: 1.5fr 1fr 1.5fr;
+            padding: 20px;
+            animation: slideDown 0.5s ease-out;
+        }
+
+        /* 3/4 主显示区 */
+        .main-display {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            transition: height 0.5s ease;
+        }
+        .main-display.with-hud { height: 75vh; }
+
+        /* 超大时钟 */
+        .big-clock {
+            font-size: 26vw;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -10px;
+        }
+        .date-line {
+            font-size: 2.5vw;
+            letter-spacing: 10px;
+            text-transform: uppercase;
+            opacity: 0.8;
+            margin-top: 20px;
+        }
+
+        /* 天气悬浮 */
+        .weather-corner {
+            position: absolute;
+            top: 40px;
+            right: 50px;
+            text-align: right;
+        }
+        .temp-val { font-size: 4vw; font-weight: 300; }
+
+        @keyframes slideDown { from { transform: translateY(-100%); } to { transform: translateY(0); } }
     </style>
 </head>
 <body>
 
-<div id="top-hud">
-    <div>
-        <div id="top-fno" style="font-size: 1.8vw; color: var(--accent); font-weight:bold;">EK---</div>
-        <div id="top-route" style="font-size: 3.8vw; font-weight:900;">-- ➔ --</div>
-        <div id="top-city" style="font-size: 1.2vw; color:#888;">WAITING...</div>
+<div class="hud-header" id="hudHeader">
+    <div style="display: flex; flex-direction: column; justify-content: center;">
+        <div id="hud-fno" style="font-size: 2vw; font-weight: 800; color: var(--accent);">EK---</div>
+        <div id="hud-route" style="font-size: 3.5vw; font-weight: 900;">--- ➔ ---</div>
     </div>
-    <div style="text-align: center; border-left: 1px solid #222; border-right: 1px solid #222;">
-        <div id="dest-icon" style="font-size: 4vw;">☀️</div>
-        <div id="dest-temp" style="font-size: 2.5vw; font-weight:bold;">--°C</div>
-        <div id="dest-cloth" style="font-size: 1vw; color:#ffca28;">穿衣建议...</div>
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; border-left: 1px solid rgba(0,0,0,0.1); border-right: 1px solid rgba(0,0,0,0.1);">
+        <div id="hud-dest-wx" style="font-size: 4vw;">☀️</div>
+        <div id="hud-dest-temp" style="font-size: 1.5vw; font-weight: 600;">--°C</div>
     </div>
-    <div style="background:#111; border-left: 5px solid var(--danger); padding: 10px;">
-        <div style="font-size:0.8vw; color:var(--danger); font-weight:bold;">🔴 NOTAM / RISK</div>
-        <div id="notam-content" style="font-size: 0.9vw; line-height:1.2;">No urgent hazards.</div>
+    <div style="padding-left: 20px; display: flex; flex-direction: column; justify-content: center;">
+        <div style="font-size: 0.8vw; opacity: 0.6;">DESTINATION INFO</div>
+        <div id="hud-dest-name" style="font-size: 1.5vw; font-weight: 600;">LOADING...</div>
+        <div id="hud-std" style="font-size: 1.2vw; color: var(--accent);">STD: --:--</div>
     </div>
-    <div class="prog-bar"><div id="bar-active"></div></div>
 </div>
 
-<div id="main-hud" class="full">
-    <div class="wx-corner">
-        <div id="main-w-icon" class="w-icon">☀️</div>
-        <div id="main-w-temp" class="w-temp">--°C</div>
+<div class="main-display" id="mainArea">
+    <div class="weather-corner">
+        <div class="temp-val" id="main-temp">--°C</div>
+        <div id="main-city" style="font-size: 1.2vw; opacity: 0.6;">DUBAI</div>
     </div>
-    <div id="view-normal"><div id="clock-dxb" class="clock-heavy">00:00</div></div>
-    <div id="view-layover" class="split-view">
-        <div class="pane">
-            <div style="font-size: 2vw; color:#666;">HOME / DUBAI</div>
-            <div id="pane-dxb-time" style="font-size: 14vw; font-weight:800;">00:00</div>
-        </div>
-        <div class="pane" style="border:none">
-            <div id="pane-loc-name" style="font-size: 2vw; color: var(--accent);">LOCAL</div>
-            <div id="pane-loc-time" style="font-size: 14vw; font-weight:800;">00:00</div>
-        </div>
-    </div>
-    <div id="footer-date" class="date-flat">APRIL 24 FRIDAY</div>
+
+    <div class="big-clock" id="clock-dxb">00:00</div>
+    <div class="date-line" id="date-footer">LOADING DATE...</div>
 </div>
 
 <script>
-    const API = {
-        wKey: '9fcc9afb0a80a6aaa44c926e4f7827a7',
-        gist: '6b51ae2b894903de0227eaec5e0ce842'
-    };
+    // ====================== 核心配置 ======================
+    const GIST_ID = localStorage.getItem('gist_id') || "6b51ae2b894903de0227eaec5e0ce842";
+    const W_KEY = localStorage.getItem('weather_api_key') || "9fcc9afb0a80a6aaa44c926e4f7827a7";
+    const DUBAI_TZ = "Asia/Dubai";
 
-    async function sync() {
+    // 20种风格对应的视觉参数 (与控制面板索引同步)
+    const themes = [
+        {bg: "#eef2f5", text: "#2c5f8a", accent: "#ffaa44"}, // 经典白
+        {bg: "#050a1a", text: "#88aaff", accent: "#58a6ff"}, // 深夜蓝
+        {bg: "#fff7ed", text: "#7c2d12", accent: "#fbbf24"}, // 暖阳橙
+        {bg: "#f0fdf4", text: "#064e3b", accent: "#10b981"}, // 森林绿
+        {bg: "#fdf2f8", text: "#831843", accent: "#ec4899"}, // 樱花粉
+        {bg: "#0f172a", text: "#f8fafc", accent: "#38bdf8"}, // 午夜
+        {bg: "#1e1b4b", text: "#e0e7ff", accent: "#818cf8"}, // 星空紫
+        {bg: "#27272a", text: "#f4f4f5", accent: "#a1a1aa"}, // 石墨灰
+        {bg: "#450a0a", text: "#fef2f2", accent: "#ef4444"}, // 玫瑰红
+        {bg: "#064e3b", text: "#ecfdf5", accent: "#34d399"}, // 翡翠
+        {bg: "#1e3a8a", text: "#eff6ff", accent: "#60a5fa"}, // 蓝宝石
+        {bg: "#4c1d95", text: "#f5f3ff", accent: "#a78bfa"}, // 紫罗兰
+        {bg: "#78350f", text: "#fffbeb", accent: "#fbbf24"}, // 沙漠
+        {bg: "#0c4a6e", text: "#f0f9ff", accent: "#38bdf8"}, // 冰川
+        {bg: "#111827", text: "#f9fafb", accent: "#6b7280"}, // 煤黑
+        {bg: "#312e81", text: "#e0e7ff", accent: "#4f46e5"}, // 靛蓝
+        {bg: "#581c87", text: "#fae8ff", accent: "#d946ef"}, // 紫红色
+        {bg: "#134e4a", text: "#f0fdfa", accent: "#2dd4bf"}, // 薄荷绿
+        {bg: "#3f6212", text: "#f7fee7", accent: "#a3e635"}, // 青柠
+        {bg: "#7c2d12", text: "#fff7ed", accent: "#fb923c"}  // 黄昏
+    ];
+
+    let currentFlight = null;
+
+    // ====================== 数据通讯逻辑 ======================
+
+    async function syncData() {
         try {
-            const res = await fetch(`https://api.github.com/gists/${API.gist}?t=${Date.now()}`);
-            const g = await res.json();
-            const d = JSON.parse(g.files["flight_data.json"].content);
-            applyLogic(d);
-            fetchWeather('Dubai', true);
-            if(d.arr) fetchWeather(d.arr, false);
-            applyTheme(d.style);
-        } catch(e) {}
+            // 抓取云端指令 (加上时间戳彻底解决缓存问题)
+            const response = await fetch(`https://api.github.com/gists/${GIST_ID}?t=${Date.now()}`);
+            const gist = await response.json();
+            
+            if (gist.files && gist.files['flight_data.json']) {
+                const cloudData = JSON.parse(gist.files['flight_data.json'].content);
+                currentFlight = cloudData;
+                
+                // 1. 更新视觉风格
+                applyTheme(cloudData.style);
+                
+                // 2. 更新 HUD 航空墙逻辑
+                renderHUD(cloudData);
+
+                // 3. 抓取天气
+                fetchWeather('Dubai', true);
+                if (cloudData.arr) fetchWeather(cloudData.arr, false);
+            }
+        } catch (e) { console.error("Sync Failed:", e); }
+    }
+
+    function applyTheme(styleStr) {
+        // 解析 style-X 字符串
+        const idx = styleStr ? parseInt(styleStr.split('-')[1]) : 0;
+        const theme = themes[idx] || themes[0];
+        
+        const root = document.documentElement;
+        root.style.setProperty('--bg', theme.bg);
+        root.style.setProperty('--text', theme.text);
+        root.style.setProperty('--accent', theme.accent);
+        
+        // 记住选择
+        localStorage.setItem('clock_style', idx);
+    }
+
+    function renderHUD(data) {
+        const hud = document.getElementById('hudHeader');
+        const main = document.getElementById('mainArea');
+        
+        if (!data.std) {
+            hud.style.display = 'none';
+            main.classList.remove('with-hud');
+            return;
+        }
+
+        const now = new Date();
+        const std = new Date(data.std);
+        const diffHours = (std - now) / 3600000;
+
+        // 逻辑：起飞前 72 小时到起飞后 12 小时显示 HUD
+        if (diffHours < 72 && diffHours > -12) {
+            hud.style.display = 'grid';
+            main.classList.add('with-hud');
+            
+            document.getElementById('hud-fno').innerText = data.flightNo || "EK---";
+            document.getElementById('hud-route').innerText = `${data.dep} ➔ ${data.arr}`;
+            document.getElementById('hud-dest-name').innerText = data.arr || "---";
+            document.getElementById('hud-std').innerText = `STD: ${std.getHours().toString().padStart(2,'0')}:${std.getMinutes().toString().padStart(2,'0')}`;
+        } else {
+            hud.style.display = 'none';
+            main.classList.remove('with-hud');
+        }
     }
 
     async function fetchWeather(city, isHome) {
         try {
-            const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${API.weather || API.wKey}`);
+            const res = await fetch(`https://api.openweathermap.org/data/2.5/weather?q=${city}&units=metric&appid=${W_KEY}`);
             const w = await res.json();
-            const temp = Math.round(w.main.temp);
-            if(isHome) { document.getElementById('main-w-temp').innerText = temp + "°C"; }
-            else { 
-                document.getElementById('dest-temp').innerText = temp + "°C";
-                document.getElementById('top-city').innerText = `${w.name}, ${w.sys.country}`;
-                document.getElementById('dest-cloth').innerText = temp > 20 ? "适合短袖" : "需防风外套";
+            if (isHome) {
+                document.getElementById('main-temp').innerText = `${Math.round(w.main.temp)}°C`;
+            } else {
+                document.getElementById('hud-dest-temp').innerText = `${Math.round(w.main.temp)}°C`;
+                // 根据 OpenWeather 的描述自动切换符号
+                const iconMap = {"Clear":"☀️","Clouds":"☁️","Rain":"🌧️","Snow":"❄️","Thunderstorm":"⛈️"};
+                document.getElementById('hud-dest-wx').innerText = iconMap[w.weather[0].main] || "🌤️";
             }
         } catch(e) {}
     }
 
-    function applyLogic(d) {
+    function tick() {
         const now = new Date();
-        const std = new Date(d.std);
-        const hours = (std - now) / 3600000;
-        const isAction = (hours < 72 && hours > -12);
+        // 迪拜大时钟
+        const dxbTime = new Intl.DateTimeFormat('en-GB', { 
+            hour: '2-digit', minute: '2-digit', hour12: false, timeZone: DUBAI_TZ 
+        }).format(now);
+        document.getElementById('clock-dxb').innerText = dxbTime;
 
-        document.getElementById('top-hud').style.display = isAction ? 'grid' : 'none';
-        document.getElementById('main-hud').className = isAction ? '' : 'full';
-        
-        if(isAction) {
-            document.getElementById('top-fno').innerText = d.flightNo || "EK---";
-            document.getElementById('top-route').innerText = `${d.dep} ➔ ${d.arr}`;
-            if(d.notam) document.getElementById('notam-content').innerText = d.notam;
-        }
-
-        if(d.isLayover) {
-            document.getElementById('view-normal').style.display = 'none';
-            document.getElementById('view-layover').style.display = 'flex';
-            document.getElementById('pane-loc-name').innerText = d.arr + " LOCAL";
-        } else {
-            document.getElementById('view-normal').style.display = 'block';
-            document.getElementById('view-layover').style.display = 'none';
-        }
+        // 扁平化日期
+        const options = { month: 'long', day: 'numeric', weekday: 'long' };
+        document.getElementById('date-footer').innerText = now.toLocaleDateString('en-US', options).toUpperCase();
     }
 
-    function applyTheme(s) {
-        const engine = document.getElementById('theme-engine');
-        // 根据s的值(style-1到style-20)动态改变CSS...此处可按需添加20种CSS
-        if(s === 'style-2') {
+    // ====================== 启动 ======================
+
+    setInterval(tick, 1000);
+    setInterval(syncData, 60000); // 每一分钟检查一次云端指令
+
+    // 立即执行一次
+    tick();
+    syncData();
+</script>
+</body>
+</html>
