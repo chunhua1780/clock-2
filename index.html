@@ -13,88 +13,62 @@
             --glass: rgba(255, 255, 255, 0.08);
             --glass-deep: rgba(0, 0, 0, 0.4);
         }
-
         * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
         body {
             background: #000; color: #fff;
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
             height: 100vh; overflow: hidden;
         }
-
-        /* 状态栏按钮 */
         .sync-btn {
             position: fixed; top: 20px; right: 20px; z-index: 100;
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2);
-            color: #fff; padding: 8px 16px; border-radius: 40px; font-weight: 600; cursor: pointer;
-            backdrop-filter: blur(10px); transition: 0.3s;
+            background: var(--glass); border: 1px solid rgba(255,255,255,0.2);
+            color: #fff; padding: 10px 20px; border-radius: 40px; font-weight: 600; cursor: pointer;
+            backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
         }
-        .sync-btn:active { background: rgba(255,255,255,0.3); }
-
         .container { height: 100vh; display: flex; flex-direction: column; padding: 16px; gap: 16px; }
         .hidden { display: none !important; }
 
-        /* 全屏时钟 */
-        .fs-mode { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-        .big-time { 
-            font-size: 24vw; font-weight: 700; line-height: 0.9; letter-spacing: -5px; 
-            background: linear-gradient(180deg, #fff 50%, #888 100%); 
-            -webkit-background-clip: text; -webkit-text-fill-color: transparent; 
-        }
-        .big-date { font-size: 2vw; color: rgba(255,255,255,0.4); margin-top: 15px; text-transform: uppercase; }
-
-        /* 航班信息头部卡片 */
+        /* 顶部航班总览 */
         .glass-card {
             background: var(--glass); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
             border-radius: 30px; border: 1px solid rgba(255,255,255,0.1); padding: 24px;
         }
-        .duty-tag { 
-            font-size: 0.7rem; padding: 4px 12px; border-radius: 12px; 
-            background: var(--ios-blue); font-weight: 800; display: inline-block; margin-bottom: 10px;
-        }
-        .f-number { font-size: 2.6rem; font-weight: 800; color: var(--ios-gold); text-shadow: 0 0 20px rgba(255, 214, 10, 0.2); }
-        .ops-banner { 
-            margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); 
-            font-size: 0.9rem; color: var(--ios-orange); font-weight: 600;
-        }
+        .duty-tag { font-size: 0.7rem; padding: 4px 12px; border-radius: 12px; background: var(--ios-blue); font-weight: 800; display: inline-block; margin-bottom: 10px; }
+        .f-number { font-size: 2.6rem; font-weight: 800; color: var(--ios-gold); }
+        .ops-banner { margin-top: 15px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.1); font-size: 0.9rem; color: var(--ios-orange); font-weight: 600; }
 
-        /* 机场分屏面板 */
+        /* 机场双面板 */
         .panels { display: flex; gap: 14px; flex: 1; }
-        .panel { 
-            flex: 1; display: flex; flex-direction: column; justify-content: space-between;
-            background: var(--glass-deep); border-radius: 30px; padding: 22px;
-            border: 1px solid rgba(255,255,255,0.05);
-        }
+        .panel { flex: 1; display: flex; flex-direction: column; justify-content: space-between; background: var(--glass-deep); border-radius: 30px; padding: 22px; border: 1px solid rgba(255,255,255,0.05); }
         .label-group { font-size: 0.6rem; color: rgba(255,255,255,0.4); font-weight: 700; letter-spacing: 1px; }
-        .airport-code { font-size: 2.4rem; font-weight: 700; color: var(--ios-blue); }
-        .tz-offset { font-size: 0.75rem; color: var(--ios-green); margin-left: 5px; }
+        .airport-code { font-size: 2.6rem; font-weight: 700; color: var(--ios-blue); }
+        .tz-offset { font-size: 0.8rem; color: var(--ios-green); margin-left: 5px; font-family: monospace; }
         .temp-display { font-size: 3rem; font-weight: 200; margin: 10px 0; }
-        .clock-display { margin-top: auto; }
-        .local-t { font-size: 2.2rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+        .local-t { font-size: 2.4rem; font-weight: 700; font-variant-numeric: tabular-nums; }
         .ref-t { font-size: 0.85rem; color: var(--ios-gold); opacity: 0.8; margin-top: 4px; }
 
-        /* 底部 UTC */
-        .utc-footer { height: 60px; display: flex; justify-content: center; align-items: center; font-size: 1.6rem; font-weight: 600; color: var(--ios-gold); font-family: "SF Mono", monospace; }
+        .utc-footer { height: 60px; display: flex; justify-content: center; align-items: center; font-size: 1.8rem; font-weight: 600; color: var(--ios-gold); font-family: "SF Mono", monospace; }
     </style>
     <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body>
 
-    <button class="sync-btn" id="syncBtn">SYNC SCHEDULE</button>
+    <button class="sync-btn" id="syncBtn">🔄 同步日历航班</button>
 
-    <div id="fullMode" class="container fs-mode">
-        <div class="big-time" id="bt">00:00</div>
-        <div class="big-date" id="bd">WAITING FOR SCHEDULE</div>
+    <div id="fullMode" class="container" style="justify-content:center; align-items:center;">
+        <div id="bt" style="font-size:24vw; font-weight:700;">00:00</div>
+        <div id="bd" style="font-size:2vw; color:rgba(255,255,255,0.4);">未检测到 48H 内航段</div>
     </div>
 
     <div id="flightMode" class="container hidden">
         <div class="glass-card">
-            <div id="dutyTag" class="duty-tag">STOPOVER / MULTI-SECTOR</div>
+            <div id="dutyTag" class="duty-tag">---</div>
             <div style="display:flex; justify-content:space-between; align-items: baseline;">
                 <div class="f-number" id="fnDisp">EK ---</div>
-                <div style="font-size:0.75rem; color:var(--ios-green);">● ACTIVE OPS</div>
+                <div id="crewInfo" style="font-size:0.7rem; color:rgba(255,255,255,0.5); text-align:right;"></div>
             </div>
-            <div id="routeDisp" style="font-size:1.6rem; font-weight:600; margin: 8px 0;">--- ➔ ---</div>
-            <div class="ops-banner" id="opsBanner">正在解析航段信息...</div>
+            <div id="routeDisp" style="font-size:1.8rem; font-weight:600; margin: 8px 0;">--- ➔ ---</div>
+            <div class="ops-banner" id="opsBanner">解析中...</div>
         </div>
 
         <div class="panels">
@@ -103,11 +77,11 @@
                     <div class="label-group">ORIGIN</div>
                     <div style="display:flex; align-items:baseline;">
                         <div class="airport-code" id="oCode">---</div>
-                        <div class="tz-offset" id="oOff">UTC+0</div>
+                        <div class="tz-offset" id="oOff">Z+0</div>
                     </div>
                 </div>
                 <div class="temp-display" id="oW">--°</div>
-                <div class="clock-display">
+                <div>
                     <div class="local-t" id="oT">00:00</div>
                     <div class="ref-t" id="oRef">DXB: --:--</div>
                 </div>
@@ -117,11 +91,11 @@
                     <div class="label-group">DESTINATION</div>
                     <div style="display:flex; align-items:baseline;">
                         <div class="airport-code" id="dCode">---</div>
-                        <div class="tz-offset" id="dOff">UTC+0</div>
+                        <div class="tz-offset" id="dOff">Z+0</div>
                     </div>
                 </div>
                 <div class="temp-display" id="dW">--°</div>
-                <div class="clock-display">
+                <div>
                     <div class="local-t" id="dT">00:00</div>
                     <div class="ref-t" id="dRef">DXB: --:--</div>
                 </div>
@@ -134,18 +108,13 @@
     const CONFIG = {
         CLIENT_ID: "234906426246-ora010t97cmlg7bcnloe11rijfal45q3.apps.googleusercontent.com",
         WEATHER_KEY: "9fcc9afb0a80a6aaa44c926e4f7827a7",
-        FLIGHT_KEY: "b4bd321bbba1723162801cce3c455d7c",
-        HOME_TZ: "Asia/Dubai",
         HUB: ["DXB", "DWC"]
     };
 
     const airportDB = {
-        "DXB": { city: "Dubai", tz: "Asia/Dubai", lat: 25.25, lon: 55.36 },
-        "DWC": { city: "Al Maktoum", tz: "Asia/Dubai", lat: 24.89, lon: 55.17 },
-        "CKY": { city: "Conakry", tz: "Africa/Conakry", lat: 9.57, lon: -13.61 },
-        "DSS": { city: "Dakar", tz: "Africa/Dakar", lat: 14.67, lon: -17.06 },
-        "SZX": { city: "Shenzhen", tz: "Asia/Shanghai", lat: 22.63, lon: 113.81 },
-        "PVG": { city: "Shanghai", tz: "Asia/Shanghai", lat: 31.14, lon: 121.80 }
+        "DXB": { tz: "Asia/Dubai", lat: 25.25, lon: 55.36 },
+        "CKY": { tz: "Africa/Conakry", lat: 9.57, lon: -13.61 },
+        "DSS": { tz: "Africa/Dakar", lat: 14.67, lon: -17.06 }
     };
 
     let tokenClient, accessToken, currentOps = null;
@@ -161,96 +130,83 @@
 
     async function syncSchedules() {
         const now = new Date();
-        const startScan = new Date(now.getTime() - 24 * 3600000).toISOString();
-        const endScan = new Date(now.getTime() + 48 * 3600000).toISOString();
+        const start = new Date(now.getTime() - 24 * 3600000).toISOString();
+        const end = new Date(now.getTime() + 72 * 3600000).toISOString();
         
         try {
-            const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${startScan}&timeMax=${endScan}&singleEvents=true&orderBy=startTime`, {
+            const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${start}&timeMax=${end}&singleEvents=true&orderBy=startTime`, {
                 headers: { 'Authorization': `Bearer ${accessToken}` }
             });
             const data = await res.json();
-            if (data.items) processTimeline(data.items);
-        } catch (e) { console.error(e); }
+            if (data.items) processCrewPulse(data.items);
+        } catch (e) { alert("同步失败: " + e); }
     }
 
-    // 核心：时间轴分析与航段定位
-    function processTimeline(items) {
+    // 针对 CrewPulse 格式的增强解析逻辑
+    function processCrewPulse(items) {
         const now = new Date();
-        let sectors = [];
+        let allSectors = [];
 
         items.forEach(ev => {
-            const text = (ev.summary + " " + (ev.description || "")).toUpperCase();
-            const codes = text.match(/\b([A-Z]{3})\b/g);
+            const content = (ev.summary + "\n" + (ev.description || "")).toUpperCase();
+            
+            // 1. 提取机场代码序列 (如 DXB, CKY, DSS)
+            const codes = content.match(/\b([A-Z]{3})\b/g);
             if (!codes || codes.length < 2) return;
 
-            // 解析航班号 (支持 8493 -> 493 递归)
-            const fnMatch = text.match(/\b(\d{3,4})\b/);
-            const fn = fnMatch ? fnMatch[1] : "---";
+            // 2. 提取时间序列 (适配 23 APR 2026 07:50 格式)
+            const timeRegex = /(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})\s+(\d{2}:\d{2})/g;
+            const times = content.match(timeRegex);
 
-            // 解析具体时间点
-            const timeMatches = text.match(/(\d{1,2})\s+(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s+(\d{4})\s+(\d{2}:\d{2})/g);
+            // 3. 提取航班号 (适配 8797 或 797)
+            const fnMatches = content.match(/\b(\d{3,4})\b/g) || [];
             
-            if (timeMatches && timeMatches.length >= 2) {
-                for (let i = 0; i < timeMatches.length - 1; i++) {
-                    sectors.push({
-                        fn: fn,
-                        org: codes[i],
-                        dst: codes[i+1],
-                        dep: parsePilotTime(timeMatches[i]),
-                        arr: parsePilotTime(timeMatches[i+1])
-                    });
+            if (times && times.length >= 2) {
+                for(let i=0; i < times.length - 1; i++) {
+                    const depT = new Date(times[i]);
+                    const arrT = new Date(times[i+1]);
+                    // 过滤掉时间间隔太长的（比如超过15小时，可能不是同一段飞行）
+                    if ((arrT - depT) / 3600000 < 18) {
+                        allSectors.push({
+                            fn: fnMatches[i] || fnMatches[0] || "---",
+                            org: codes[i],
+                            dst: codes[i+1],
+                            dep: depT,
+                            arr: arrT
+                        });
+                    }
                 }
-            } else {
-                sectors.push({
-                    fn: fn, org: codes[0], dst: codes[1],
-                    dep: new Date(ev.start.dateTime || ev.start.date),
-                    arr: new Date(ev.end.dateTime || ev.end.date)
-                });
             }
         });
 
-        // 定位当前航段：找到第一个尚未到达的航段
-        const active = sectors.find(s => s.arr > now) || sectors[sectors.length - 1];
+        // 定位当前或下一段航段
+        const active = allSectors.find(s => s.arr > now) || allSectors[allSectors.length-1];
         if (!active) return;
 
-        // 判定 Turnaround 或 Stopover
-        const isHomeOrg = CONFIG.HUB.includes(active.org);
-        const nextSector = sectors.find(s => s.dep > active.arr);
+        // 判定任务类型
         let type = "LAYOVER / STAY";
-        let banner = `LIMO PICKUP: ${formatTime(new Date(active.dep.getTime() - 135 * 60000))}`;
-
-        if (isHomeOrg && nextSector) {
-            const isHomeReturn = CONFIG.HUB.includes(nextSector.dst);
-            type = isHomeReturn ? "TURNAROUND (TR)" : "STOPOVER / MULTI-SECTOR";
-            const groundTime = Math.floor((nextSector.dep - active.arr) / 60000);
-            banner += ` | Ground Time: ${Math.floor(groundTime/60)}h ${groundTime%60}m`;
+        if (CONFIG.HUB.includes(active.org)) {
+            const next = allSectors.find(s => s.dep > active.arr);
+            type = (next && CONFIG.HUB.includes(next.dst)) ? "TURNAROUND (TR)" : "FLY OUT / DEPARTURE";
+        } else if (CONFIG.HUB.includes(active.dst)) {
+            type = "RETURN / ARRIVAL";
         }
 
-        currentOps = { active, type, banner };
+        currentOps = { active, type, banner: `PICKUP: ${formatTime(new Date(active.dep.getTime() - 135*60000))} | DEPART: ${formatTime(active.dep)}` };
         renderUI();
     }
 
-    function parsePilotTime(str) {
-        const p = str.split(/\s+/);
-        return new Date(`${p[0]} ${p[1]} ${p[2]} ${p[3]}`);
-    }
-
     function renderUI() {
-        if (!currentOps) return;
-        const { active, type, banner } = currentOps;
-        
         document.getElementById('fullMode').classList.add('hidden');
         document.getElementById('flightMode').classList.remove('hidden');
+        const { active, type, banner } = currentOps;
 
         document.getElementById('dutyTag').innerText = type;
-        document.getElementById('fnDisp').innerText = "EK " + active.fn;
+        document.getElementById('fnDisp').innerText = "EK " + active.fn.slice(-3); // 统一显示3位
         document.getElementById('routeDisp').innerText = `${active.org} ➔ ${active.dst}`;
         document.getElementById('opsBanner').innerText = banner;
-        
         document.getElementById('oCode').innerText = active.org;
         document.getElementById('dCode').innerText = active.dst;
-
-        // 获取时区偏移
         document.getElementById('oOff').innerText = getTZOffset(active.org);
         document.getElementById('dOff').innerText = getTZOffset(active.dst);
 
@@ -260,10 +216,9 @@
 
     function getTZOffset(code) {
         const info = airportDB[code];
-        if (!info) return "UTC+0";
-        const now = new Date();
-        const str = now.toLocaleString('en-GB', { timeZone: info.tz, timeZoneName: 'short' });
-        return str.split(' ').pop();
+        if (!info) return "Z+0";
+        const parts = new Intl.DateTimeFormat('en-GB', { timeZone: info.tz, timeZoneName: 'shortOffset' }).formatToParts(new Date());
+        return parts.find(p => p.type === 'timeZoneName').value;
     }
 
     async function updateWeather(code, elId) {
@@ -277,30 +232,22 @@
 
     function formatTime(d) { return d.getHours().toString().padStart(2,'0') + ":" + d.getMinutes().toString().padStart(2,'0'); }
 
-    function startClocks() {
-        setInterval(() => {
-            const now = new Date();
-            const dxbTime = now.toLocaleTimeString('en-GB', { timeZone: CONFIG.HOME_TZ, hour12: false, hour:'2-digit', minute:'2-digit' });
+    setInterval(() => {
+        const now = new Date();
+        const dxbT = now.toLocaleTimeString('en-GB', { timeZone: 'Asia/Dubai', hour12: false, hour:'2-digit', minute:'2-digit' });
+        document.getElementById('bt').innerText = dxbT;
+        document.getElementById('utc').innerText = now.toISOString().slice(11, 19);
 
-            document.getElementById('bt').innerText = dxbTime;
-            document.getElementById('bd').innerText = now.toLocaleDateString('en-US', { weekday:'long', month:'long', day:'numeric' }).toUpperCase();
+        if (currentOps) {
+            const { active } = currentOps;
+            document.getElementById('oT').innerText = now.toLocaleTimeString('en-GB', { timeZone: airportDB[active.org]?.tz || 'UTC', hour12: false, hour:'2-digit', minute:'2-digit' });
+            document.getElementById('dT').innerText = now.toLocaleTimeString('en-GB', { timeZone: airportDB[active.dst]?.tz || 'UTC', hour12: false, hour:'2-digit', minute:'2-digit' });
+            document.getElementById('oRef').innerText = `DXB: ${dxbT}`;
+            document.getElementById('dRef').innerText = `DXB: ${dxbT}`;
+        }
+    }, 1000);
 
-            if (currentOps) {
-                const { active } = currentOps;
-                const oTz = airportDB[active.org]?.tz || "UTC";
-                const dTz = airportDB[active.dst]?.tz || "UTC";
-
-                document.getElementById('oT').innerText = now.toLocaleTimeString('en-GB', { timeZone: oTz, hour12: false, hour:'2-digit', minute:'2-digit' });
-                document.getElementById('oRef').innerText = `DXB: ${dxbTime}`;
-                
-                document.getElementById('dT').innerText = now.toLocaleTimeString('en-GB', { timeZone: dTz, hour12: false, hour:'2-digit', minute:'2-digit' });
-                document.getElementById('dRef').innerText = `DXB: ${dxbTime}`;
-            }
-            document.getElementById('utc').innerText = now.toISOString().slice(11, 19);
-        }, 1000);
-    }
-
-    window.onload = () => { initAuth(); startClocks(); };
+    window.onload = initAuth;
 </script>
 </body>
 </html>
