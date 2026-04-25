@@ -135,7 +135,7 @@
 </div>
 
 <script>
-    // ==================== 原有全局配置 ====================
+    // ==================== 全局配置 ====================
     const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
     const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
     const DUBAI_TZ = "Asia/Dubai";
@@ -145,7 +145,7 @@
     let currentFlight = null;
     let weatherCache = {};
 
-    // Google 日历授权相关
+    // Google 日历
     let tokenClient = null;
     let accessToken = null;
     const GOOGLE_CLIENT_ID = "234906426246-ora010t97cmlg7bcnloe11rijfal45q3.apps.googleusercontent.com";
@@ -172,7 +172,7 @@
         setTimeout(() => t.remove(), 2000);
     }
 
-    // ==================== 天气、数据加载 ====================
+    // ==================== 天气 & 数据加载 ====================
     async function fetchWeather(lat, lon) {
         const cacheKey = `${lat}_${lon}_${Math.floor(Date.now() / 3600000)}`;
         if (weatherCache[cacheKey]) return weatherCache[cacheKey];
@@ -291,8 +291,11 @@
         });
     }
 
+    // 核心：应用布局样式（已修复选择器，确保 data-type 存在）
     function applyElementStyle(containerId, type, className, side = null) {
-        let selector = side ? `#${containerId} #${side} .clock-element[data-type="${type}"]` : `#${containerId} .clock-element[data-type="${type}"]`;
+        let selector = side
+            ? `#${containerId} #${side} .clock-element[data-type="${type}"]`
+            : `#${containerId} .clock-element[data-type="${type}"]`;
         let el = document.querySelector(selector);
         if (!el) return;
         let cfg;
@@ -312,6 +315,7 @@
         if (textEl && cfg.lineHeight) textEl.style.lineHeight = cfg.lineHeight;
     }
 
+    // ==================== 构建三种模式（已添加 data-type 属性） ====================
     async function buildSingleMode() {
         let container = document.createElement('div');
         container.className = 'mode-container';
@@ -475,6 +479,7 @@
         if (rightWeather) rightWeather.innerHTML = `${destWeather.icon} ${destWeather.temp}°C`;
     }
 
+    // ==================== 刷新主界面（关键修复：强制重新应用布局） ====================
     async function refreshDisplay(showLoading = true) {
         let loading = null;
         if (showLoading) {
@@ -483,7 +488,7 @@
             loading.innerHTML = `<div>🔄 同步配置中...</div><div style="margin-top:8px;">请稍候</div>`;
             document.body.appendChild(loading);
         }
-        await loadData();
+        await loadData();   // 重新加载最新配置
         if (loading) loading.remove();
 
         let { current } = getFlightChain();
@@ -493,38 +498,11 @@
         else if (state === "scheduled") newMode = "dual";
         else newMode = "triple";
 
-        if (newMode === currentMode && document.getElementById('normalContainer')) {
-            if (currentMode === 'single') {
-                applyElementStyle('normalContainer', 'clock', 'clock-text');
-                applyElementStyle('normalContainer', 'date', 'date-text');
-                applyElementStyle('normalContainer', 'city', 'city-text');
-                applyElementStyle('normalContainer', 'weather', 'weather-text');
-            } else if (currentMode === 'dual') {
-                applyElementStyle('normalContainer', 'clock', 'clock-text', 'dualLeft');
-                applyElementStyle('normalContainer', 'date', 'date-text', 'dualLeft');
-                applyElementStyle('normalContainer', 'city', 'city-text', 'dualLeft');
-                applyElementStyle('normalContainer', 'weather', 'weather-text', 'dualLeft');
-                applyElementStyle('normalContainer', 'clock', 'clock-text', 'dualRight');
-                applyElementStyle('normalContainer', 'date', 'date-text', 'dualRight');
-                applyElementStyle('normalContainer', 'city', 'city-text', 'dualRight');
-                applyElementStyle('normalContainer', 'weather', 'weather-text', 'dualRight');
-            } else {
-                applyElementStyle('normalContainer', 'clock', 'clock-text', 'tripleLeft');
-                applyElementStyle('normalContainer', 'date', 'date-text', 'tripleLeft');
-                applyElementStyle('normalContainer', 'city', 'city-text', 'tripleLeft');
-                applyElementStyle('normalContainer', 'weather', 'weather-text', 'tripleLeft');
-                applyElementStyle('normalContainer', 'clock', 'clock-text', 'tripleRight');
-                applyElementStyle('normalContainer', 'date', 'date-text', 'tripleRight');
-                applyElementStyle('normalContainer', 'city', 'city-text', 'tripleRight');
-                applyElementStyle('normalContainer', 'weather', 'weather-text', 'tripleRight');
-            }
-            applyColorTheme();
-            return;
-        }
-
+        // 无论模式是否改变，都完全重建界面，确保布局配置生效
+        // 这样可以彻底解决配置不同步的问题
+        document.getElementById('app').innerHTML = '';
         currentMode = newMode;
         currentFlight = current;
-        document.getElementById('app').innerHTML = '';
         if (currentMode === "single") await buildSingleMode();
         else if (currentMode === "dual") await buildDualMode(current);
         else await buildTripleMode(current);
@@ -627,7 +605,7 @@
     // ==================== 初始化 ====================
     window.addEventListener('load', async () => {
         await refreshDisplay(true);
-        setInterval(() => refreshDisplay(false), 300000);
+        setInterval(() => refreshDisplay(false), 300000); // 每5分钟自动刷新
         if (typeof google !== 'undefined' && google.accounts) {
             initGoogleAuth();
         } else {
