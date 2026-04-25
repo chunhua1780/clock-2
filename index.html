@@ -1,298 +1,514 @@
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<title>Pilot Dashboard V3</title>
-
-<style>
-body{
-margin:0;
-background:black;
-color:white;
-font-family:Arial;
-overflow:hidden;
-}
-
-/* 主容器 */
-#app{
-width:100vw;
-height:100vh;
-position:relative;
-}
-
-/* 可拖拽模块 */
-.widget{
-position:absolute;
-width:280px;
-min-height:120px;
-background:rgba(255,255,255,0.06);
-border:1px solid rgba(255,255,255,0.1);
-border-radius:12px;
-padding:10px;
-cursor:grab;
-user-select:none;
-touch-action:none;
-}
-
-.widget:active{cursor:grabbing;}
-
-#clock{font-size:80px;font-weight:bold;}
-#weather{font-size:20px;}
-#flightInfo{font-size:16px;white-space:pre-line;}
-
-/* 控制按钮 */
-.control-btn{
-position:absolute;
-width:80px;
-height:80px;
-background:rgba(255,255,255,0.08);
-border-radius:14px;
-display:flex;
-justify-content:center;
-align-items:center;
-font-size:26px;
-opacity:0;
-transition:0.3s;
-}
-
-#settingsBtn{top:20px;right:20px;}
-#flightBtn{bottom:20px;right:20px;}
-
-/* 弹窗 */
-.modal{
-position:absolute;
-top:50%;
-left:50%;
-transform:translate(-50%,-50%);
-background:#111;
-padding:20px;
-border:1px solid #444;
-display:none;
-width:320px;
-z-index:10;
-}
-
-input{width:100%;margin:5px 0;}
-button{margin-top:10px;}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>迪拜飞行时钟 · 智能版</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body {
+            font-family: 'SF Pro Display', -apple-system, 'Helvetica Neue', sans-serif;
+            height: 100vh;
+            width: 100vw;
+            overflow: hidden;
+            transition: background-color 0.5s, color 0.3s;
+        }
+        .mode-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+        }
+        .dual-layout, .triple-layout {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+        .dual-panel {
+            flex: 1;
+            position: relative;
+            border-right: 1px solid rgba(255,255,255,0.1);
+        }
+        .dual-panel:last-child {
+            border-right: none;
+        }
+        .triple-layout {
+            flex-direction: column;
+        }
+        .triple-top {
+            height: 30%;
+            background: rgba(0,0,0,0.4);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            z-index: 5;
+        }
+        .triple-bottom {
+            flex: 1;
+            display: flex;
+        }
+        .flight-bar {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            right: 12px;
+            background: rgba(0,0,0,0.55);
+            backdrop-filter: blur(12px);
+            border-radius: 28px;
+            padding: 8px 16px;
+            font-size: 0.7rem;
+            text-align: center;
+            pointer-events: none;
+            z-index: 20;
+        }
+        .clock-element {
+            position: absolute;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            white-space: nowrap;
+        }
+        .clock-text {
+            font-weight: 700;
+            background: linear-gradient(135deg, #fff, #88aaff);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+        }
+        .date-text, .city-text, .weather-text {
+            opacity: 0.85;
+        }
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .refresh-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #2a6faa;
+            border: none;
+            border-radius: 40px;
+            padding: 8px 16px;
+            color: white;
+            font-size: 0.7rem;
+            cursor: pointer;
+            z-index: 100;
+            opacity: 0.7;
+        }
+        .refresh-btn:active {
+            opacity: 1;
+        }
+    </style>
 </head>
-
 <body>
-
-<div id="app">
-
-<!-- 时钟 -->
-<div class="widget" id="clockBox">
-<div id="clock"></div>
-</div>
-
-<!-- 天气 -->
-<div class="widget" id="weatherBox">
-<div id="weather">Dubai 30°C</div>
-</div>
-
-<!-- 航班 -->
-<div class="widget" id="flightBox">
-<div id="flightInfo">No Flight</div>
-</div>
-
-</div>
-
-<!-- 控制按钮 -->
-<div id="settingsBtn" class="control-btn">⚙️</div>
-<div id="flightBtn" class="control-btn">✈️</div>
-
-<!-- 设置 -->
-<div id="settingsModal" class="modal">
-<h3>设置</h3>
-
-字体大小：
-<input type="range" id="fontSize" min="40" max="160">
-
-<button onclick="saveSettings()">保存</button>
-</div>
-
-<!-- 航班 -->
-<div id="flightModal" class="modal">
-<h3>航班</h3>
-
-航班号：
-<input id="fNo">
-
-出发：
-<input id="fFrom">
-
-目的：
-<input id="fTo">
-
-起飞：
-<input type="time" id="fDep">
-
-落地：
-<input type="time" id="fArr">
-
-<button onclick="saveFlight()">保存</button>
-</div>
+<div id="app"></div>
+<button id="manualRefreshBtn" class="refresh-btn">🔄 强制刷新配置</button>
 
 <script>
+    // ==================== 全局配置 ====================
+    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
+    const DUBAI_TZ = "Asia/Dubai";
+    let flightsDB = {};
+    let layoutConfig = null;
+    let currentMode = "single";
+    let currentFlight = null;
+    let weatherCache = {};
 
-/* =========================
-   时钟（无秒）
-========================= */
-setInterval(()=>{
-let d=new Date();
-clock.innerText =
-d.getHours().toString().padStart(2,'0')+":"+
-d.getMinutes().toString().padStart(2,'0');
-},1000);
+    const airportInfo = {
+        "DXB": { city: "Dubai", country: "United Arab Emirates", tz: "Asia/Dubai", lat: 25.2532, lon: 55.3657 },
+        "PVG": { city: "Shanghai", country: "China", tz: "Asia/Shanghai", lat: 31.1443, lon: 121.8083 },
+        "PEK": { city: "Beijing", country: "China", tz: "Asia/Shanghai", lat: 40.0799, lon: 116.6031 },
+        "LHR": { city: "London", country: "United Kingdom", tz: "Europe/London", lat: 51.47, lon: -0.4543 },
+        "JFK": { city: "New York", country: "USA", tz: "America/New_York", lat: 40.6413, lon: -73.7781 },
+        "CDG": { city: "Paris", country: "France", tz: "Europe/Paris", lat: 49.0097, lon: 2.5479 },
+        "SIN": { city: "Singapore", country: "Singapore", tz: "Asia/Singapore", lat: 1.3644, lon: 103.9915 },
+        "SYD": { city: "Sydney", country: "Australia", tz: "Australia/Sydney", lat: -33.9461, lon: 151.1772 }
+    };
+    function getAirport(code) {
+        return airportInfo[code] || { city: code, country: "", tz: "UTC", lat: 25.2532, lon: 55.3657 };
+    }
 
-/* =========================
-   隐形控制逻辑
-========================= */
-let timer;
+    async function fetchWeather(lat, lon) {
+        const cacheKey = `${lat}_${lon}_${Math.floor(Date.now() / 3600000)}`;
+        if (weatherCache[cacheKey]) return weatherCache[cacheKey];
+        try {
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=auto`;
+            const resp = await fetch(url);
+            const data = await resp.json();
+            if (data && data.current_weather) {
+                const map = {0:"☀️",1:"🌤️",2:"⛅",3:"☁️",45:"🌫️",51:"🌧️",61:"🌧️",71:"❄️",80:"🌦️",95:"⛈️"};
+                const icon = map[data.current_weather.weathercode] || "🌍";
+                const result = { temp: Math.round(data.current_weather.temperature), icon: icon };
+                weatherCache[cacheKey] = result;
+                return result;
+            }
+        } catch(e) { console.warn(e); }
+        return { temp: 22, icon: "☀️" };
+    }
 
-document.body.addEventListener("click",()=>{
-settingsBtn.style.opacity=1;
-flightBtn.style.opacity=1;
+    async function loadData() {
+        try {
+            const resp = await fetch(GIST_API);
+            const data = await resp.json();
+            if (data.files && data.files['flight_data.json']) {
+                const content = JSON.parse(data.files['flight_data.json'].content);
+                flightsDB = content.flightsDB || {};
+                console.log("✅ 航班数据加载成功");
+            }
+            if (data.files && data.files['clock_layout.json']) {
+                layoutConfig = JSON.parse(data.files['clock_layout.json'].content);
+                console.log("✅ 布局配置加载成功");
+            }
+        } catch(e) {
+            console.warn("从 Gist 加载失败", e);
+        }
+        if (!layoutConfig) {
+            layoutConfig = {
+                single: {
+                    clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2", hidden:false },
+                    date: { left:"50%", top:"75%", fontSize:"16px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                    city: { left:"50%", top:"85%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:true },
+                    weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }
+                },
+                dual: {
+                    left: {
+                        clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2", hidden:false },
+                        date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }
+                    },
+                    right: {
+                        clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2", hidden:false },
+                        date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }
+                    }
+                },
+                triple: {
+                    left: {
+                        clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2", hidden:false },
+                        date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }
+                    },
+                    right: {
+                        clock: { left:"50%", top:"35%", fontSize:"48px", letterSpacing:"4px", lineHeight:"1.2", hidden:false },
+                        date: { left:"50%", top:"70%", fontSize:"14px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        city: { left:"50%", top:"85%", fontSize:"12px", letterSpacing:"0px", lineHeight:"1.2", hidden:false },
+                        weather: { left:"85%", top:"15%", fontSize:"20px", letterSpacing:"0px", lineHeight:"1.2", hidden:false }
+                    }
+                },
+                colors: {
+                    dayBg: "#e8f0f5", dayText: "#1a2a3a",
+                    nightBg: "#0a0e1a", nightText: "#eef2f5",
+                    accentColor: "#ffaa44"
+                }
+            };
+        }
+    }
 
-clearTimeout(timer);
-timer=setTimeout(()=>{
-settingsBtn.style.opacity=0;
-flightBtn.style.opacity=0;
-},5000);
-});
+    function getFlightChain() {
+        let now = new Date();
+        let all = [];
+        for (let date in flightsDB) {
+            for (let f of flightsDB[date]) {
+                let dep = new Date(f.departureTime);
+                if (dep > now && dep < new Date(now.getTime() + 72 * 3600000)) {
+                    all.push({ ...f, depTime: dep });
+                }
+            }
+        }
+        all.sort((a, b) => a.depTime - b.depTime);
+        return { current: all[0] || null, next: all[1] || null };
+    }
 
-/* =========================
-   打开面板
-========================= */
-settingsBtn.onclick=e=>{
-e.stopPropagation();
-settingsModal.style.display="block";
-};
+    function getFlightState(flight) {
+        if (!flight) return "no-flight";
+        let now = new Date();
+        let dep = new Date(flight.departureTime);
+        let arr = flight.arrivalTime ? new Date(flight.arrivalTime) : null;
+        if (now < dep) return "scheduled";
+        if (now > dep && (!arr || now < arr)) return "flying";
+        return "arrived";
+    }
 
-flightBtn.onclick=e=>{
-e.stopPropagation();
-flightModal.style.display="block";
-};
+    function applyColorTheme() {
+        if (!layoutConfig.colors) return;
+        let hour = new Date().toLocaleTimeString('en-US', { timeZone: DUBAI_TZ, hour: '2-digit', hour12: false });
+        let isDay = (Number(hour) >= 6 && Number(hour) < 18);
+        let bg = isDay ? layoutConfig.colors.dayBg : layoutConfig.colors.nightBg;
+        let text = isDay ? layoutConfig.colors.dayText : layoutConfig.colors.nightText;
+        document.body.style.backgroundColor = bg;
+        document.body.style.color = text;
+        document.querySelectorAll('.clock-text').forEach(el => {
+            el.style.background = `linear-gradient(135deg, ${layoutConfig.colors.accentColor}, ${text})`;
+            el.style.webkitBackgroundClip = 'text';
+            el.style.backgroundClip = 'text';
+            el.style.color = 'transparent';
+        });
+    }
 
-/* =========================
-   设置
-========================= */
-function saveSettings(){
-localStorage.setItem("fontSize",fontSize.value);
-applyUI();
-settingsModal.style.display="none";
-}
+    function applyElementStyle(containerId, type, className, side = null) {
+        let selector = side ? `#${containerId} #${side} .clock-element[data-type="${type}"]` : `#${containerId} .clock-element[data-type="${type}"]`;
+        let el = document.querySelector(selector);
+        if (!el) return;
+        let cfg;
+        if (currentMode === 'single') cfg = layoutConfig.single[type];
+        else if (currentMode === 'dual') cfg = layoutConfig.dual[side][type];
+        else cfg = layoutConfig.triple[side][type];
+        if (!cfg || cfg.hidden) {
+            el.style.display = 'none';
+            return;
+        }
+        el.style.display = 'block';
+        if (cfg.left) el.style.left = cfg.left;
+        if (cfg.top) el.style.top = cfg.top;
+        let textEl = el.querySelector(`.${className}`);
+        if (textEl && cfg.fontSize) textEl.style.fontSize = cfg.fontSize;
+        if (textEl && cfg.letterSpacing) textEl.style.letterSpacing = cfg.letterSpacing;
+        if (textEl && cfg.lineHeight) textEl.style.lineHeight = cfg.lineHeight;
+    }
 
-function applyUI(){
-let f=localStorage.getItem("fontSize")||80;
-document.querySelectorAll(".widget").forEach(w=>{
-w.style.fontSize=f+"px";
-});
-}
+    async function buildSingleMode() {
+        let container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'normalContainer';
+        container.innerHTML = `
+            <div class="clock-element" data-type="clock"><div class="clock-text">--:--</div></div>
+            <div class="clock-element" data-type="date"><div class="date-text"></div></div>
+            <div class="clock-element" data-type="city"><div class="city-text">Dubai, United Arab Emirates</div></div>
+            <div class="clock-element" data-type="weather"><div class="weather-text">☀️ --°C</div></div>
+        `;
+        document.getElementById('app').appendChild(container);
+        applyElementStyle('normalContainer', 'clock', 'clock-text');
+        applyElementStyle('normalContainer', 'date', 'date-text');
+        applyElementStyle('normalContainer', 'city', 'city-text');
+        applyElementStyle('normalContainer', 'weather', 'weather-text');
+        function update() {
+            let now = new Date();
+            let timeStr = now.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+            let dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+            let clockDiv = document.querySelector('#normalContainer .clock-element[data-type="clock"] .clock-text');
+            let dateDiv = document.querySelector('#normalContainer .clock-element[data-type="date"] .date-text');
+            if (clockDiv) clockDiv.innerText = timeStr;
+            if (dateDiv) dateDiv.innerText = dateStr;
+        }
+        update();
+        setInterval(update, 1000);
+        let weather = await fetchWeather(25.2532, 55.3657);
+        let weatherDiv = document.querySelector('#normalContainer .clock-element[data-type="weather"] .weather-text');
+        if (weatherDiv) weatherDiv.innerHTML = `${weather.icon} ${weather.temp}°C`;
+        setInterval(async () => {
+            let w = await fetchWeather(25.2532, 55.3657);
+            let wd = document.querySelector('#normalContainer .clock-element[data-type="weather"] .weather-text');
+            if (wd) wd.innerHTML = `${w.icon} ${w.temp}°C`;
+        }, 1800000);
+    }
 
-/* =========================
-   航班
-========================= */
-function saveFlight(){
+    async function buildDualMode(flight) {
+        let destInfo = getAirport(flight.destination);
+        let container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'normalContainer';
+        container.innerHTML = `
+            <div class="flight-bar" id="dualFlightBar"></div>
+            <div class="dual-layout">
+                <div class="dual-panel" id="dualLeft">
+                    <div class="clock-element" data-type="clock"><div class="clock-text">--:--</div></div>
+                    <div class="clock-element" data-type="date"><div class="date-text"></div></div>
+                    <div class="clock-element" data-type="city"><div class="city-text">Dubai, UAE</div></div>
+                    <div class="clock-element" data-type="weather"><div class="weather-text">☀️ --°C</div></div>
+                </div>
+                <div class="dual-panel" id="dualRight">
+                    <div class="clock-element" data-type="clock"><div class="clock-text">--:--</div></div>
+                    <div class="clock-element" data-type="date"><div class="date-text"></div></div>
+                    <div class="clock-element" data-type="city"><div class="city-text">${destInfo.city}, ${destInfo.country}</div></div>
+                    <div class="clock-element" data-type="weather"><div class="weather-text">🌤️ --°C</div></div>
+                </div>
+            </div>
+        `;
+        document.getElementById('app').appendChild(container);
+        applyElementStyle('normalContainer', 'clock', 'clock-text', 'dualLeft');
+        applyElementStyle('normalContainer', 'date', 'date-text', 'dualLeft');
+        applyElementStyle('normalContainer', 'city', 'city-text', 'dualLeft');
+        applyElementStyle('normalContainer', 'weather', 'weather-text', 'dualLeft');
+        applyElementStyle('normalContainer', 'clock', 'clock-text', 'dualRight');
+        applyElementStyle('normalContainer', 'date', 'date-text', 'dualRight');
+        applyElementStyle('normalContainer', 'city', 'city-text', 'dualRight');
+        applyElementStyle('normalContainer', 'weather', 'weather-text', 'dualRight');
+        let depTime = new Date(flight.departureTime);
+        let localTime = depTime.toLocaleTimeString('en-GB', { timeZone: destInfo.tz, hour: '2-digit', minute: '2-digit', hour12: false });
+        let dubaiTime = depTime.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', minute: '2-digit', hour12: false });
+        let bar = document.getElementById('dualFlightBar');
+        if (bar) bar.innerHTML = `✈️ ${flight.flightNumber} · ${flight.origin} → ${flight.destination} · 起飞 ${localTime} (当地) / ${dubaiTime} (迪拜)`;
+        function update() {
+            let n = new Date();
+            let leftTime = n.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', minute: '2-digit' });
+            let rightTime = n.toLocaleTimeString('en-GB', { timeZone: destInfo.tz, hour: '2-digit', minute: '2-digit' });
+            let leftClock = document.querySelector('#normalContainer #dualLeft .clock-element[data-type="clock"] .clock-text');
+            let rightClock = document.querySelector('#normalContainer #dualRight .clock-element[data-type="clock"] .clock-text');
+            let leftDate = document.querySelector('#normalContainer #dualLeft .clock-element[data-type="date"] .date-text');
+            let rightDate = document.querySelector('#normalContainer #dualRight .clock-element[data-type="date"] .date-text');
+            if (leftClock) leftClock.innerText = leftTime;
+            if (rightClock) rightClock.innerText = rightTime;
+            if (leftDate) leftDate.innerText = n.toLocaleDateString('en-US', { timeZone: DUBAI_TZ, weekday: 'short', month: 'short', day: 'numeric' });
+            if (rightDate) rightDate.innerText = n.toLocaleDateString('en-US', { timeZone: destInfo.tz, weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        update();
+        setInterval(update, 1000);
+        let dubaiWeather = await fetchWeather(25.2532, 55.3657);
+        let destWeather = await fetchWeather(destInfo.lat, destInfo.lon);
+        let leftWeather = document.querySelector('#normalContainer #dualLeft .clock-element[data-type="weather"] .weather-text');
+        let rightWeather = document.querySelector('#normalContainer #dualRight .clock-element[data-type="weather"] .weather-text');
+        if (leftWeather) leftWeather.innerHTML = `${dubaiWeather.icon} ${dubaiWeather.temp}°C`;
+        if (rightWeather) rightWeather.innerHTML = `${destWeather.icon} ${destWeather.temp}°C`;
+    }
 
-let no=fNo.value;
-if(!no.startsWith("EK")) no="EK"+no;
+    async function buildTripleMode(flight) {
+        let destInfo = getAirport(flight.destination);
+        let container = document.createElement('div');
+        container.className = 'mode-container';
+        container.id = 'normalContainer';
+        container.innerHTML = `
+            <div class="triple-layout">
+                <div class="triple-top" id="tripleTopBar"></div>
+                <div class="triple-bottom">
+                    <div class="dual-panel" id="tripleLeft">
+                        <div class="clock-element" data-type="clock"><div class="clock-text">--:--</div></div>
+                        <div class="clock-element" data-type="date"><div class="date-text"></div></div>
+                        <div class="clock-element" data-type="city"><div class="city-text">Dubai, UAE</div></div>
+                        <div class="clock-element" data-type="weather"><div class="weather-text">☀️ --°C</div></div>
+                    </div>
+                    <div class="dual-panel" id="tripleRight">
+                        <div class="clock-element" data-type="clock"><div class="clock-text">--:--</div></div>
+                        <div class="clock-element" data-type="date"><div class="date-text"></div></div>
+                        <div class="clock-element" data-type="city"><div class="city-text">${destInfo.city}, ${destInfo.country}</div></div>
+                        <div class="clock-element" data-type="weather"><div class="weather-text">🌤️ --°C</div></div>
+                    </div>
+                </div>
+            </div>
+        `;
+        document.getElementById('app').appendChild(container);
+        applyElementStyle('normalContainer', 'clock', 'clock-text', 'tripleLeft');
+        applyElementStyle('normalContainer', 'date', 'date-text', 'tripleLeft');
+        applyElementStyle('normalContainer', 'city', 'city-text', 'tripleLeft');
+        applyElementStyle('normalContainer', 'weather', 'weather-text', 'tripleLeft');
+        applyElementStyle('normalContainer', 'clock', 'clock-text', 'tripleRight');
+        applyElementStyle('normalContainer', 'date', 'date-text', 'tripleRight');
+        applyElementStyle('normalContainer', 'city', 'city-text', 'tripleRight');
+        applyElementStyle('normalContainer', 'weather', 'weather-text', 'tripleRight');
+        let dep = new Date(flight.departureTime);
+        let arr = flight.arrivalTime ? new Date(flight.arrivalTime) : new Date(dep.getTime() + 8 * 3600000);
+        let total = arr - dep;
+        let updateProgress = () => {
+            let now = Date.now();
+            let elapsed = Math.min(total, Math.max(0, now - dep));
+            let percent = (elapsed / total) * 100;
+            let bar = document.getElementById('tripleTopBar');
+            if (bar) bar.innerHTML = `✈️ ${flight.flightNumber} · ${flight.origin} → ${flight.destination} · 进度 ${Math.round(percent)}% · 剩余 ${Math.round((total - elapsed) / 60000)}分钟`;
+        };
+        updateProgress();
+        setInterval(updateProgress, 1000);
+        function update() {
+            let n = new Date();
+            let leftTime = n.toLocaleTimeString('en-GB', { timeZone: DUBAI_TZ, hour: '2-digit', minute: '2-digit' });
+            let rightTime = n.toLocaleTimeString('en-GB', { timeZone: destInfo.tz, hour: '2-digit', minute: '2-digit' });
+            let leftClock = document.querySelector('#normalContainer #tripleLeft .clock-element[data-type="clock"] .clock-text');
+            let rightClock = document.querySelector('#normalContainer #tripleRight .clock-element[data-type="clock"] .clock-text');
+            let leftDate = document.querySelector('#normalContainer #tripleLeft .clock-element[data-type="date"] .date-text');
+            let rightDate = document.querySelector('#normalContainer #tripleRight .clock-element[data-type="date"] .date-text');
+            if (leftClock) leftClock.innerText = leftTime;
+            if (rightClock) rightClock.innerText = rightTime;
+            if (leftDate) leftDate.innerText = n.toLocaleDateString('en-US', { timeZone: DUBAI_TZ, weekday: 'short', month: 'short', day: 'numeric' });
+            if (rightDate) rightDate.innerText = n.toLocaleDateString('en-US', { timeZone: destInfo.tz, weekday: 'short', month: 'short', day: 'numeric' });
+        }
+        update();
+        setInterval(update, 1000);
+        let dubaiWeather = await fetchWeather(25.2532, 55.3657);
+        let destWeather = await fetchWeather(destInfo.lat, destInfo.lon);
+        let leftWeather = document.querySelector('#normalContainer #tripleLeft .clock-element[data-type="weather"] .weather-text');
+        let rightWeather = document.querySelector('#normalContainer #tripleRight .clock-element[data-type="weather"] .weather-text');
+        if (leftWeather) leftWeather.innerHTML = `${dubaiWeather.icon} ${dubaiWeather.temp}°C`;
+        if (rightWeather) rightWeather.innerHTML = `${destWeather.icon} ${destWeather.temp}°C`;
+    }
 
-let f={
-no,
-from:fFrom.value,
-to:fTo.value,
-dep:fDep.value,
-arr:fArr.value
-};
+    async function refreshDisplay(showLoading = true) {
+        let loading = null;
+        if (showLoading) {
+            loading = document.createElement('div');
+            loading.className = 'loading-overlay';
+            loading.innerHTML = `<div>🔄 同步配置中...</div><div style="margin-top:8px;">请稍候</div>`;
+            document.body.appendChild(loading);
+        }
+        await loadData();
+        if (loading) loading.remove();
 
-localStorage.setItem("flight",JSON.stringify(f));
-loadFlight();
+        let { current } = getFlightChain();
+        let state = getFlightState(current);
+        let newMode = "single";
+        if (state === "no-flight") newMode = "single";
+        else if (state === "scheduled") newMode = "dual";
+        else newMode = "triple";
 
-flightModal.style.display="none";
-}
+        if (newMode === currentMode && document.getElementById('normalContainer')) {
+            if (currentMode === 'single') {
+                applyElementStyle('normalContainer', 'clock', 'clock-text');
+                applyElementStyle('normalContainer', 'date', 'date-text');
+                applyElementStyle('normalContainer', 'city', 'city-text');
+                applyElementStyle('normalContainer', 'weather', 'weather-text');
+            } else if (currentMode === 'dual') {
+                applyElementStyle('normalContainer', 'clock', 'clock-text', 'dualLeft');
+                applyElementStyle('normalContainer', 'date', 'date-text', 'dualLeft');
+                applyElementStyle('normalContainer', 'city', 'city-text', 'dualLeft');
+                applyElementStyle('normalContainer', 'weather', 'weather-text', 'dualLeft');
+                applyElementStyle('normalContainer', 'clock', 'clock-text', 'dualRight');
+                applyElementStyle('normalContainer', 'date', 'date-text', 'dualRight');
+                applyElementStyle('normalContainer', 'city', 'city-text', 'dualRight');
+                applyElementStyle('normalContainer', 'weather', 'weather-text', 'dualRight');
+            } else {
+                applyElementStyle('normalContainer', 'clock', 'clock-text', 'tripleLeft');
+                applyElementStyle('normalContainer', 'date', 'date-text', 'tripleLeft');
+                applyElementStyle('normalContainer', 'city', 'city-text', 'tripleLeft');
+                applyElementStyle('normalContainer', 'weather', 'weather-text', 'tripleLeft');
+                applyElementStyle('normalContainer', 'clock', 'clock-text', 'tripleRight');
+                applyElementStyle('normalContainer', 'date', 'date-text', 'tripleRight');
+                applyElementStyle('normalContainer', 'city', 'city-text', 'tripleRight');
+                applyElementStyle('normalContainer', 'weather', 'weather-text', 'tripleRight');
+            }
+            applyColorTheme();
+            return;
+        }
 
-function loadFlight(){
-let f=JSON.parse(localStorage.getItem("flight"));
-if(!f)return;
+        currentMode = newMode;
+        currentFlight = current;
+        document.getElementById('app').innerHTML = '';
+        if (currentMode === "single") await buildSingleMode();
+        else if (currentMode === "dual") await buildDualMode(current);
+        else await buildTripleMode(current);
+        applyColorTheme();
+    }
 
-flightInfo.innerText=
-`${f.no}
-${f.from} → ${f.to}
-DEP ${f.dep}
-ARR ${f.arr}`;
-}
-
-/* =========================
-   拖拽系统（核心）
-========================= */
-let drag=null,ox=0,oy=0;
-
-function enableDrag(el){
-
-el.addEventListener("mousedown",start);
-el.addEventListener("touchstart",start);
-
-function start(e){
-drag=el;
-
-let x=e.touches?e.touches[0].clientX:e.clientX;
-let y=e.touches?e.touches[0].clientY:e.clientY;
-
-let rect=el.getBoundingClientRect();
-
-ox=x-rect.left;
-oy=y-rect.top;
-
-document.addEventListener("mousemove",move);
-document.addEventListener("touchmove",move);
-document.addEventListener("mouseup",end);
-document.addEventListener("touchend",end);
-}
-
-function move(e){
-if(!drag)return;
-
-let x=e.touches?e.touches[0].clientX:e.clientX;
-let y=e.touches?e.touches[0].clientY:e.clientY;
-
-drag.style.left=(x-ox)+"px";
-drag.style.top=(y-oy)+"px";
-}
-
-function end(){
-
-localStorage.setItem(drag.id+"_x",drag.style.left);
-localStorage.setItem(drag.id+"_y",drag.style.top);
-
-drag=null;
-}
-}
-
-/* =========================
-   恢复布局
-========================= */
-function restore(){
-document.querySelectorAll(".widget").forEach(w=>{
-let x=localStorage.getItem(w.id+"_x");
-let y=localStorage.getItem(w.id+"_y");
-
-if(x) w.style.left=x;
-if(y) w.style.top=y;
-
-enableDrag(w);
-});
-}
-
-/* =========================
-   初始化
-========================= */
-applyUI();
-loadFlight();
-restore();
-
+    window.addEventListener('load', async () => {
+        await refreshDisplay(true);
+        setInterval(() => refreshDisplay(false), 300000);
+    });
+    document.getElementById('manualRefreshBtn').addEventListener('click', () => refreshDisplay(true));
 </script>
-
 </body>
 </html>
