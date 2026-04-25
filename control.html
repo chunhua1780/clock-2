@@ -2,62 +2,274 @@
 <html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes, viewport-fit=cover">
     <title>航班控制台 · 云端同步</title>
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { background: #0a0e1a; color: #fff; font-family: -apple-system, 'SF Pro Display', sans-serif; padding: 16px; min-height: 100vh; }
-        .container { max-width: 600px; margin: 0 auto; }
-        .header { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        h1 { font-size: 1.8rem; color: #ffd966; }
-        .settings-btn { background: #2a6faa; padding: 6px 14px; border-radius: 30px; font-size: 0.8rem; cursor: pointer; }
-        .sync-badge { background: #2a6faa; padding: 4px 12px; border-radius: 20px; font-size: 0.7rem; }
-        .calendar-card { background: #11161f; border-radius: 32px; padding: 20px; margin-bottom: 20px; }
-        .month-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-        .month-nav button { background: #1a1f2e; border: none; width: 40px; height: 40px; border-radius: 40px; font-size: 1.2rem; cursor: pointer; color: white; }
-        .current-month { font-size: 1.2rem; font-weight: 600; color: #ffd966; }
-        .weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 12px; }
-        .weekday { font-size: 0.7rem; color: #88aacc; padding: 8px 0; }
-        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
-        .cal-day { aspect-ratio: 1; background: #1a1f2e; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; border: 1px solid transparent; }
-        .cal-day.today { border-color: #ffaa44; }
-        .cal-day.has-flight { background: #2a3a2a; }
-        .cal-day.selected { background: #ffaa44; color: #0a0e1a; }
-        .cal-day.other-month { opacity: 0.4; }
-        .flight-dot { width: 5px; height: 5px; background: #66ffaa; border-radius: 5px; margin-top: 3px; }
-        .flights-card { background: #11161f; border-radius: 32px; padding: 20px; margin-bottom: 20px; }
-        .section-title { font-size: 1rem; font-weight: 600; color: #ffd966; margin-bottom: 12px; }
-        .flight-item { background: #1a1f2e; border-radius: 20px; padding: 12px; margin-bottom: 10px; border-left: 4px solid #ffaa44; }
-        .flight-num { font-size: 1rem; font-weight: bold; color: #ffd966; }
-        .flight-time { font-size: 0.7rem; color: #aabbdd; margin-top: 4px; }
-        .delete-btn { background: #aa4444; border: none; padding: 4px 12px; border-radius: 20px; cursor: pointer; font-size: 0.7rem; margin-top: 6px; }
-        .empty-tip { text-align: center; color: #88aacc; padding: 20px; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.6); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 1000; }
-        .modal { background: #1a1f2e; border-radius: 32px; padding: 24px; width: 90%; max-width: 450px; max-height: 80vh; overflow-y: auto; }
-        .modal-title { font-size: 1.2rem; font-weight: 600; color: #ffd966; margin-bottom: 16px; }
-        .modal input { width: 100%; padding: 12px; background: #0a0e1a; border: 1px solid #2a3344; border-radius: 40px; color: white; font-size: 1rem; margin-bottom: 12px; }
-        .modal button { width: 100%; padding: 12px; border-radius: 40px; font-weight: bold; cursor: pointer; margin-top: 8px; }
-        .btn-primary { background: #ffaa44; color: #0a0e1a; }
-        .btn-secondary { background: #2a6faa; color: white; }
-        .date-scroll { display: flex; gap: 8px; overflow-x: auto; margin: 12px 0; padding-bottom: 8px; }
-        .date-option { background: #0a0e1a; border: 1px solid #2a3344; padding: 8px 16px; border-radius: 40px; white-space: nowrap; font-size: 0.8rem; cursor: pointer; }
-        .date-option.selected { background: #ffaa44; color: #0a0e1a; }
-        .toast { position: fixed; bottom: 30px; left: 20px; right: 20px; background: #ffaa44; color: #0a0e1a; padding: 10px; border-radius: 40px; text-align: center; z-index: 1100; animation: fadeOut 2s forwards; }
-        @keyframes fadeOut { 0% { opacity: 1; } 70% { opacity: 1; } 100% { opacity: 0; visibility: hidden; } }
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        body {
+            background: #0a0e1a;
+            color: #fff;
+            font-family: -apple-system, 'SF Pro Display', sans-serif;
+            padding: 16px;
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        h1 {
+            font-size: 1.8rem;
+            color: #ffd966;
+        }
+        .settings-btn {
+            background: #2a6faa;
+            padding: 6px 14px;
+            border-radius: 30px;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .sync-badge {
+            background: #2a6faa;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.7rem;
+        }
+        .calendar-card {
+            background: #11161f;
+            border-radius: 32px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .month-nav {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .month-nav button {
+            background: #1a1f2e;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 40px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            color: white;
+        }
+        .current-month {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #ffd966;
+        }
+        .weekdays {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            text-align: center;
+            margin-bottom: 12px;
+        }
+        .weekday {
+            font-size: 0.7rem;
+            color: #88aacc;
+            padding: 8px 0;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 6px;
+        }
+        .cal-day {
+            aspect-ratio: 1;
+            background: #1a1f2e;
+            border-radius: 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border: 1px solid transparent;
+        }
+        .cal-day.today {
+            border-color: #ffaa44;
+        }
+        .cal-day.has-flight {
+            background: #2a3a2a;
+        }
+        .cal-day.selected {
+            background: #ffaa44;
+            color: #0a0e1a;
+        }
+        .cal-day.other-month {
+            opacity: 0.4;
+        }
+        .flight-dot {
+            width: 5px;
+            height: 5px;
+            background: #66ffaa;
+            border-radius: 5px;
+            margin-top: 3px;
+        }
+        .flights-card {
+            background: #11161f;
+            border-radius: 32px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .section-title {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #ffd966;
+            margin-bottom: 12px;
+        }
+        .flight-item {
+            background: #1a1f2e;
+            border-radius: 20px;
+            padding: 12px;
+            margin-bottom: 10px;
+            border-left: 4px solid #ffaa44;
+        }
+        .flight-num {
+            font-weight: bold;
+            color: #ffd966;
+            font-size: 1rem;
+        }
+        .flight-time {
+            font-size: 0.7rem;
+            color: #aabbdd;
+            margin-top: 4px;
+        }
+        .delete-btn {
+            background: #aa4444;
+            border: none;
+            padding: 4px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            margin-top: 6px;
+        }
+        .empty-tip {
+            text-align: center;
+            color: #88aacc;
+            padding: 20px;
+        }
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            backdrop-filter: blur(8px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        .modal {
+            background: #1a1f2e;
+            border-radius: 32px;
+            padding: 24px;
+            width: 90%;
+            max-width: 450px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .modal-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #ffd966;
+            margin-bottom: 16px;
+        }
+        .modal input, .modal select {
+            width: 100%;
+            padding: 12px;
+            background: #0a0e1a;
+            border: 1px solid #2a3344;
+            border-radius: 40px;
+            color: white;
+            font-size: 1rem;
+            margin-bottom: 12px;
+        }
+        .modal button {
+            width: 100%;
+            padding: 12px;
+            border-radius: 40px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 8px;
+        }
+        .btn-primary {
+            background: #ffaa44;
+            color: #0a0e1a;
+        }
+        .btn-secondary {
+            background: #2a6faa;
+            color: white;
+        }
+        .date-scroll {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            margin: 12px 0;
+            padding-bottom: 8px;
+        }
+        .date-option {
+            background: #0a0e1a;
+            border: 1px solid #2a3344;
+            padding: 8px 16px;
+            border-radius: 40px;
+            white-space: nowrap;
+            font-size: 0.8rem;
+            cursor: pointer;
+        }
+        .date-option.selected {
+            background: #ffaa44;
+            color: #0a0e1a;
+        }
+        .toast {
+            position: fixed;
+            bottom: 30px;
+            left: 20px;
+            right: 20px;
+            background: #ffaa44;
+            color: #0a0e1a;
+            padding: 10px;
+            border-radius: 40px;
+            text-align: center;
+            z-index: 1100;
+            animation: fadeOut 2s forwards;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; visibility: hidden; }
+        }
     </style>
 </head>
 <body>
 <div class="container">
     <div class="header">
         <h1>✈️ 航班控制台</h1>
-        <div class="settings-btn" id="tokenSettingsBtn">🔑 设置Token</div>
+        <div class="settings-btn" id="tokenBtn">🔑 Token</div>
         <div class="sync-badge" id="syncStatus">☁️ 同步中</div>
     </div>
     <div class="calendar-card">
         <div class="month-nav">
-            <button id="prevMonthBtn">◀</button>
-            <span class="current-month" id="currentMonth"></span>
-            <button id="nextMonthBtn">▶</button>
+            <button id="prevMonth">◀</button>
+            <span class="current-month" id="monthDisplay"></span>
+            <button id="nextMonth">▶</button>
         </div>
         <div class="weekdays">
             <div class="weekday">SUN</div><div class="weekday">MON</div><div class="weekday">TUE</div>
@@ -66,18 +278,406 @@
         <div class="calendar-grid" id="calendarGrid"></div>
     </div>
     <div class="flights-card">
-        <div class="section-title">📋 已保存航班</div>
-        <div id="flightListContainer" class="empty-tip">点击日期添加航班</div>
+        <div class="section-title">📋 当天航班</div>
+        <div id="flightList"></div>
     </div>
 </div>
 
 <script>
-    // 完整版航班控制台代码，与之前一致，包含所有功能（自动搜索、手动添加、回程、云端同步）
-    // 为确保不超过平台限制，此处引用您之前确认可用的完整版本。
-    // (实际部署时可直接使用您已测试通过的 control.html)
-    // 由于空间限制，此处不重复粘贴全部代码，但您应当使用之前的功能完整的 control.html。
-    // 如果急需，我可以再发一次完整 control.html。
-    console.log("请将完整 control.html 代码放在此处");
+    // ==================== 配置 ====================
+    const AVIATION_KEY = "b4bd321bbba1723162801cce3c455d7c";
+    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
+    const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
+    const DUBAI_TZ = "Asia/Dubai";
+    let flightsDB = {};
+    let currentYear = new Date().getFullYear();
+    let currentMonth = new Date().getMonth();
+    let selectedDate = null;
+    let userToken = localStorage.getItem('github_token') || '';
+
+    // Token 管理
+    function setToken(token) {
+        userToken = token;
+        if (token) localStorage.setItem('github_token', token);
+        else localStorage.removeItem('github_token');
+        showToast("Token 已保存");
+    }
+    function getAuthHeaders() {
+        if (userToken) return { 'Authorization': `token ${userToken}`, 'Content-Type': 'application/json' };
+        return { 'Content-Type': 'application/json' };
+    }
+
+    // 辅助函数
+    function showToast(msg) {
+        let t = document.createElement('div'); t.className = 'toast'; t.innerText = msg;
+        document.body.appendChild(t); setTimeout(() => t.remove(), 2000);
+    }
+
+    // 智能航班号（自动补 EK）
+    function smartFlightNum(input) {
+        let num = input.trim().toUpperCase();
+        if (/^[A-Z]{2,3}\d{2,4}$/.test(num)) return num;
+        if (/^\d+$/.test(num)) {
+            if (num.length === 4) return `EK${num}`;
+            if (num.length === 3) return `EK0${num}`;
+            if (num.length === 2) return `EK00${num}`;
+            return `EK${num}`;
+        }
+        return num;
+    }
+
+    // 4位数时间解析
+    function parseTime4Digits(str) {
+        let s = str.trim();
+        if (/^\d{3,4}$/.test(s)) {
+            let hour, minute;
+            if (s.length === 3) { hour = parseInt(s[0]); minute = parseInt(s.slice(1)); }
+            else { hour = parseInt(s.slice(0,2)); minute = parseInt(s.slice(2,4)); }
+            if (hour>=0 && hour<=23 && minute>=0 && minute<=59)
+                return { hour: hour.toString().padStart(2,'0'), minute: minute.toString().padStart(2,'0'), valid: true };
+        }
+        return { valid: false };
+    }
+
+    // 搜索航班 (Aviationstack)
+    async function searchFlight(flightNumber, dateStr) {
+        let fn = smartFlightNum(flightNumber);
+        try {
+            let url = `https://api.aviationstack.com/v1/flights?access_key=${AVIATION_KEY}&flight_iata=${fn}&limit=5`;
+            let resp = await fetch(url);
+            let data = await resp.json();
+            if (data.data && data.data.length) {
+                for (let f of data.data) {
+                    let depDate = f.departure?.scheduled?.split('T')[0];
+                    if (depDate === dateStr) {
+                        return {
+                            found: true,
+                            flightNumber: f.flight.iata,
+                            origin: f.departure?.iata,
+                            destination: f.arrival?.iata,
+                            departureTime: new Date(f.departure.scheduled),
+                            arrivalTime: f.arrival?.scheduled ? new Date(f.arrival.scheduled) : null
+                        };
+                    }
+                }
+            }
+        } catch(e) {}
+        return { found: false };
+    }
+
+    // 保存航班到本地 + 云端
+    async function saveFlight(date, flightNum, origin, dest, depTimeISO, arrTimeISO = null) {
+        if (!flightsDB[date]) flightsDB[date] = [];
+        flightsDB[date].push({
+            id: Date.now() + Math.random(),
+            flightNumber: flightNum,
+            origin: origin,
+            destination: dest,
+            departureTime: depTimeISO,
+            arrivalTime: arrTimeISO
+        });
+        await syncToCloud();
+        renderCalendar();
+        renderDayFlights();
+        showToast(`✅ 已添加 ${flightNum}`);
+        // 如果是迪拜出发，弹出回程窗口
+        if (origin === "DXB" && dest !== "DXB") {
+            showReturnPopup(dest, date);
+        }
+    }
+
+    // 删除航班
+    function deleteFlight(date, id) {
+        if (flightsDB[date]) {
+            flightsDB[date] = flightsDB[date].filter(f => f.id != id);
+            if (flightsDB[date].length === 0) delete flightsDB[date];
+            syncToCloud();
+            renderCalendar();
+            renderDayFlights();
+            showToast("✈️ 已删除");
+        }
+    }
+
+    // 云端同步
+    async function syncToCloud() {
+        try {
+            let content = JSON.stringify({ flightsDB: flightsDB, lastUpdated: new Date().toISOString() }, null, 2);
+            let resp = await fetch(GIST_API, {
+                method: 'PATCH',
+                headers: getAuthHeaders(),
+                body: JSON.stringify({ files: { 'flight_data.json': { content: content } } })
+            });
+            if (resp.ok) {
+                document.getElementById('syncStatus').innerHTML = '☁️ 已同步';
+                setTimeout(() => { document.getElementById('syncStatus').innerHTML = '☁️ 同步中'; }, 2000);
+            } else {
+                console.warn("同步失败", resp.status);
+            }
+        } catch(e) { console.warn(e); }
+    }
+
+    async function loadFromCloud() {
+        try {
+            let headers = userToken ? { 'Authorization': `token ${userToken}` } : {};
+            let resp = await fetch(GIST_API, { headers });
+            let data = await resp.json();
+            if (data.files && data.files['flight_data.json']) {
+                let content = JSON.parse(data.files['flight_data.json'].content);
+                flightsDB = content.flightsDB || {};
+                localStorage.setItem('flight_calendar_db', JSON.stringify(flightsDB));
+            } else throw new Error('no file');
+        } catch(e) {
+            let local = localStorage.getItem('flight_calendar_db');
+            if (local) flightsDB = JSON.parse(local);
+        }
+        renderCalendar();
+        renderDayFlights();
+    }
+
+    // ==================== 回程弹窗 ====================
+    function showReturnPopup(fromAirport, departDate) {
+        let modal = document.createElement('div'); modal.className = 'modal-overlay';
+        let selectedDateStr = null;
+        let baseDate = new Date(departDate);
+        let dateOptions = [];
+        for (let i = 0; i <= 7; i++) {
+            let d = new Date(baseDate);
+            d.setDate(baseDate.getDate() + i);
+            dateOptions.push(d.toISOString().split('T')[0]);
+        }
+        let dateHtml = `<div class="date-scroll" id="returnDateScroll">`;
+        dateOptions.forEach((date, idx) => {
+            let display = idx === 0 ? `今天 ${date.slice(5)}` : (idx === 1 ? `明天 ${date.slice(5)}` : date.slice(5));
+            dateHtml += `<div class="date-option ${idx===1 ? 'selected' : ''}" data-date="${date}">${display}</div>`;
+        });
+        dateHtml += `</div>`;
+        modal.innerHTML = `
+            <div class="modal">
+                <div class="modal-title">✈️ 添加回程航班</div>
+                <input type="text" id="returnFlightNum" placeholder="回程航班号 (如 304)" autocomplete="off">
+                <div style="display:flex; gap:10px; margin:12px 0;">
+                    <input type="text" id="returnOrigin" value="${fromAirport}" readonly style="flex:1;">
+                    <input type="text" id="returnDest" placeholder="目的地" value="DXB" style="flex:1; text-transform:uppercase">
+                </div>
+                <div>选择回程日期</div>
+                ${dateHtml}
+                <input type="text" id="returnTime" placeholder="起飞时间 (4位数 如 1430)" autocomplete="off">
+                <button id="confirmReturnBtn" class="btn-primary">✅ 添加回程</button>
+                <button id="closeReturnBtn" class="btn-secondary">取消</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        const scrollDiv = document.getElementById('returnDateScroll');
+        scrollDiv.querySelectorAll('.date-option').forEach(opt => {
+            opt.onclick = () => {
+                scrollDiv.querySelectorAll('.date-option').forEach(o => o.classList.remove('selected'));
+                opt.classList.add('selected');
+                selectedDateStr = opt.dataset.date;
+            };
+        });
+        selectedDateStr = dateOptions[1]; // 默认明天
+        document.getElementById('confirmReturnBtn').onclick = async () => {
+            let flightNum = document.getElementById('returnFlightNum').value.trim();
+            let origin = document.getElementById('returnOrigin').value.trim().toUpperCase();
+            let dest = document.getElementById('returnDest').value.trim().toUpperCase();
+            let timeStr = document.getElementById('returnTime').value.trim();
+            if (!flightNum || !origin || !dest || !timeStr) { showToast("请填写完整信息"); return; }
+            let parsed = parseTime4Digits(timeStr);
+            if (!parsed.valid) { showToast("时间格式错误，如 1430"); return; }
+            let depDateTime = new Date(`${selectedDateStr}T${parsed.hour}:${parsed.minute}:00`);
+            if (isNaN(depDateTime)) return;
+            let finalFlightNum = smartFlightNum(flightNum);
+            await saveFlight(selectedDateStr, finalFlightNum, origin, dest, depDateTime.toISOString(), null);
+            modal.remove();
+        };
+        document.getElementById('closeReturnBtn').onclick = () => modal.remove();
+    }
+
+    // ==================== 添加航班主弹窗 ====================
+    function showAddFlightModal(dateStr) {
+        let modal = document.createElement('div'); modal.className = 'modal-overlay';
+        let searchDate = dateStr;
+        modal.innerHTML = `
+            <div class="modal">
+                <div class="modal-title">✈️ 添加航班 · ${dateStr}</div>
+                <input type="text" id="modalFlightNum" placeholder="航班号 (如 303 或 EK303)" autocomplete="off">
+                <div style="display:flex; gap:10px; margin:12px 0;">
+                    <input type="text" id="modalOrigin" placeholder="起飞机场 (DXB)" style="flex:1; text-transform:uppercase">
+                    <input type="text" id="modalDest" placeholder="目的地 (PVG)" style="flex:1; text-transform:uppercase">
+                </div>
+                <button id="autoSearchBtn" class="btn-primary">🔍 自动搜索</button>
+                <button id="manualModeBtn" class="btn-secondary">✏️ 手动输入时间</button>
+                <div id="manualSection" style="display:none; margin-top:12px;">
+                    <input type="text" id="manualTime" placeholder="起飞时间 (4位数 如 1430)">
+                    <button id="confirmManualBtn" class="btn-primary">✅ 确认添加</button>
+                </div>
+                <div id="searchResult" style="font-size:0.8rem; margin-top:12px;"></div>
+                <button id="closeModalBtn" class="btn-secondary">取消</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('autoSearchBtn').onclick = async () => {
+            let flightNum = document.getElementById('modalFlightNum').value.trim();
+            let origin = document.getElementById('modalOrigin').value.trim().toUpperCase();
+            let dest = document.getElementById('modalDest').value.trim().toUpperCase();
+            if (!flightNum || !origin || !dest) {
+                document.getElementById('searchResult').innerHTML = "请填写完整信息";
+                return;
+            }
+            document.getElementById('searchResult').innerHTML = "🔍 搜索中...";
+            let res = await searchFlight(flightNum, searchDate);
+            if (res.found && res.departureTime) {
+                document.getElementById('modalOrigin').value = res.origin;
+                document.getElementById('modalDest').value = res.destination;
+                let localTime = res.departureTime.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+                let dubaiTime = res.departureTime.toLocaleTimeString('zh-CN', { timeZone: DUBAI_TZ, hour:'2-digit', minute:'2-digit' });
+                document.getElementById('searchResult').innerHTML = `✅ 找到 ${res.flightNumber}<br>✈️ 起飞 ${localTime} (当地) / 🕐 ${dubaiTime} (迪拜)<br><button id="quickAddBtn" class="btn-primary">确认添加</button>`;
+                document.getElementById('quickAddBtn').onclick = () => {
+                    saveFlight(searchDate, res.flightNumber, res.origin, res.destination, res.departureTime.toISOString(), res.arrivalTime?.toISOString());
+                    modal.remove();
+                };
+            } else {
+                document.getElementById('searchResult').innerHTML = "❌ 未找到航班，请使用手动输入";
+            }
+        };
+        document.getElementById('manualModeBtn').onclick = () => {
+            document.getElementById('manualSection').style.display = 'block';
+        };
+        document.getElementById('confirmManualBtn').onclick = () => {
+            let flightNum = document.getElementById('modalFlightNum').value.trim();
+            let origin = document.getElementById('modalOrigin').value.trim().toUpperCase();
+            let dest = document.getElementById('modalDest').value.trim().toUpperCase();
+            let timeStr = document.getElementById('manualTime').value.trim();
+            if (!flightNum || !origin || !dest || !timeStr) {
+                document.getElementById('searchResult').innerHTML = "请填写完整信息";
+                return;
+            }
+            let parsed = parseTime4Digits(timeStr);
+            if (!parsed.valid) { document.getElementById('searchResult').innerHTML = "时间格式错误，如 1430"; return; }
+            let depDateTime = new Date(`${searchDate}T${parsed.hour}:${parsed.minute}:00`);
+            if (isNaN(depDateTime)) return;
+            let finalFlightNum = smartFlightNum(flightNum);
+            saveFlight(searchDate, finalFlightNum, origin, dest, depDateTime.toISOString(), null);
+            modal.remove();
+        };
+        document.getElementById('closeModalBtn').onclick = () => modal.remove();
+    }
+
+    // ==================== 日历渲染 ====================
+    function renderCalendar() {
+        let firstDay = new Date(currentYear, currentMonth, 1);
+        let lastDay = new Date(currentYear, currentMonth+1, 0);
+        let startWeek = firstDay.getDay();
+        let daysInMonth = lastDay.getDate();
+        let prevLast = new Date(currentYear, currentMonth, 0).getDate();
+        let grid = document.getElementById('calendarGrid');
+        grid.innerHTML = '';
+        let monthNames = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        document.getElementById('monthDisplay').innerText = `${monthNames[currentMonth]} ${currentYear}`;
+        let today = new Date();
+        let todayStr = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}`;
+
+        for (let i = startWeek-1; i >= 0; i--) {
+            let day = prevLast - i;
+            let date = new Date(currentYear, currentMonth-1, day);
+            let dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`;
+            let has = flightsDB[dateStr] && flightsDB[dateStr].length > 0;
+            let cell = createDayCell(day, true, has, dateStr === todayStr, dateStr);
+            grid.appendChild(cell);
+        }
+        for (let d=1; d<=daysInMonth; d++) {
+            let dateStr = `${currentYear}-${String(currentMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+            let has = flightsDB[dateStr] && flightsDB[dateStr].length > 0;
+            let isToday = dateStr === todayStr;
+            let cell = createDayCell(d, false, has, isToday, dateStr);
+            grid.appendChild(cell);
+        }
+        let total = Math.ceil((startWeek+daysInMonth)/7)*7;
+        let remaining = total - (startWeek+daysInMonth);
+        for (let i=1; i<=remaining; i++) {
+            let date = new Date(currentYear, currentMonth+1, i);
+            let dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(i).padStart(2,'0')}`;
+            let has = flightsDB[dateStr] && flightsDB[dateStr].length > 0;
+            let cell = createDayCell(i, true, has, false, dateStr);
+            grid.appendChild(cell);
+        }
+    }
+
+    function createDayCell(day, isOther, hasFlight, isToday, dateStr) {
+        let cell = document.createElement('div');
+        cell.className = 'cal-day';
+        if (isOther) cell.classList.add('other-month');
+        if (isToday) cell.classList.add('today');
+        if (hasFlight) cell.classList.add('has-flight');
+        if (selectedDate === dateStr) cell.classList.add('selected');
+        let num = document.createElement('div'); num.innerText = day; cell.appendChild(num);
+        if (hasFlight) {
+            let dot = document.createElement('div'); dot.className = 'flight-dot'; cell.appendChild(dot);
+        }
+        cell.onclick = () => {
+            selectedDate = dateStr;
+            renderCalendar();
+            renderDayFlights();
+            showAddFlightModal(dateStr);
+        };
+        return cell;
+    }
+
+    function renderDayFlights() {
+        let container = document.getElementById('flightList');
+        if (!selectedDate) {
+            container.innerHTML = '<div class="empty-tip">📅 点击日期添加航班</div>';
+            return;
+        }
+        let flights = flightsDB[selectedDate] || [];
+        if (flights.length === 0) {
+            container.innerHTML = '<div class="empty-tip">✈️ 当天无航班，点击上方日期添加</div>';
+            return;
+        }
+        container.innerHTML = flights.map(f => {
+            let dep = new Date(f.departureTime);
+            let localTime = dep.toLocaleTimeString('zh-CN', { hour:'2-digit', minute:'2-digit' });
+            let dubaiTime = dep.toLocaleTimeString('zh-CN', { timeZone: DUBAI_TZ, hour:'2-digit', minute:'2-digit' });
+            return `
+                <div class="flight-item">
+                    <div class="flight-num">✈️ ${f.flightNumber}  ${f.origin} → ${f.destination}</div>
+                    <div class="flight-time">🛫 起飞 ${localTime} (当地) / 🕐 ${dubaiTime} (迪拜)</div>
+                    <button class="delete-btn" onclick="deleteFlight('${selectedDate}', ${f.id})">删除</button>
+                </div>
+            `;
+        }).join('');
+    }
+
+    // Token 设置弹窗
+    function showTokenModal() {
+        let modal = document.createElement('div'); modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal">
+                <div class="modal-title">🔑 GitHub Token 设置</div>
+                <input type="password" id="tokenInput" placeholder="Personal Access Token" value="${userToken}">
+                <div style="font-size:0.7rem; color:#aaa; margin-bottom:8px;">需要 gist 读写权限，留空则使用公开访问</div>
+                <button id="saveTokenBtn" class="btn-primary">💾 保存 Token</button>
+                <button id="closeTokenBtn" class="btn-secondary">取消</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+        document.getElementById('saveTokenBtn').onclick = () => {
+            let newToken = document.getElementById('tokenInput').value.trim();
+            setToken(newToken);
+            modal.remove();
+            loadFromCloud(); // 重新加载数据（可能用到新token）
+        };
+        document.getElementById('closeTokenBtn').onclick = () => modal.remove();
+    }
+
+    // 事件绑定
+    document.getElementById('prevMonth').onclick = () => { currentMonth--; if (currentMonth < 0) { currentMonth = 11; currentYear--; } renderCalendar(); };
+    document.getElementById('nextMonth').onclick = () => { currentMonth++; if (currentMonth > 11) { currentMonth = 0; currentYear++; } renderCalendar(); };
+    document.getElementById('tokenBtn').onclick = showTokenModal;
+
+    // 初始化
+    loadFromCloud();
+    window.deleteFlight = deleteFlight;
 </script>
 </body>
 </html>
