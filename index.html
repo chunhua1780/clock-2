@@ -96,10 +96,15 @@
             justify-content: center;
             z-index: 1000;
         }
-        .refresh-btn {
+        .action-buttons {
             position: fixed;
             bottom: 20px;
             right: 20px;
+            display: flex;
+            gap: 12px;
+            z-index: 100;
+        }
+        .action-btn {
             background: #2a6faa;
             border: none;
             border-radius: 40px;
@@ -107,20 +112,41 @@
             color: white;
             font-size: 0.7rem;
             cursor: pointer;
-            z-index: 100;
             opacity: 0.7;
         }
-        .refresh-btn:active {
+        .action-btn:active {
             opacity: 1;
         }
+        .toast {
+            position: fixed;
+            bottom: 80px;
+            left: 20px;
+            right: 20px;
+            background: #ffaa44;
+            color: #0a0e1a;
+            padding: 10px;
+            border-radius: 40px;
+            text-align: center;
+            z-index: 1100;
+            animation: fadeOut 2s forwards;
+        }
+        @keyframes fadeOut {
+            0% { opacity: 1; }
+            70% { opacity: 1; }
+            100% { opacity: 0; visibility: hidden; }
+        }
     </style>
+    <script src="https://accounts.google.com/gsi/client"></script>
 </head>
 <body>
 <div id="app"></div>
-<button id="manualRefreshBtn" class="refresh-btn">🔄 强制刷新配置</button>
+<div class="action-buttons">
+    <button id="googleAuthBtn" class="action-btn">🔐 授权 Google 日历</button>
+    <button id="manualRefreshBtn" class="action-btn">🔄 刷新配置</button>
+</div>
 
 <script>
-    // ==================== 全局配置 ====================
+    // ==================== 原有全局配置 ====================
     const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
     const GIST_API = `https://api.github.com/gists/${GIST_ID}`;
     const DUBAI_TZ = "Asia/Dubai";
@@ -130,6 +156,13 @@
     let currentFlight = null;
     let weatherCache = {};
 
+    // Google 日历授权相关
+    let tokenClient = null;
+    let accessToken = null;
+    const GOOGLE_CLIENT_ID = "234906426246-ora010t97cmlg7bcnloe11rijfal45q3.apps.googleusercontent.com";
+    const GOOGLE_SCOPE = "https://www.googleapis.com/auth/calendar.readonly";
+
+    // 机场信息库
     const airportInfo = {
         "DXB": { city: "Dubai", country: "United Arab Emirates", tz: "Asia/Dubai", lat: 25.2532, lon: 55.3657 },
         "PVG": { city: "Shanghai", country: "China", tz: "Asia/Shanghai", lat: 31.1443, lon: 121.8083 },
@@ -144,6 +177,14 @@
         return airportInfo[code] || { city: code, country: "", tz: "UTC", lat: 25.2532, lon: 55.3657 };
     }
 
+    // 通用提示
+    function showToast(msg) {
+        let t = document.createElement('div'); t.className = 'toast'; t.innerText = msg;
+        document.body.appendChild(t);
+        setTimeout(() => t.remove(), 2000);
+    }
+
+    // ==================== 原有天气、数据加载、布局渲染 ====================
     async function fetchWeather(lat, lon) {
         const cacheKey = `${lat}_${lon}_${Math.floor(Date.now() / 3600000)}`;
         if (weatherCache[cacheKey]) return weatherCache[cacheKey];
@@ -504,9 +545,115 @@
         applyColorTheme();
     }
 
+    // ==================== Google 日历集成 ====================
+    function initGoogleAuth() {
+        tokenClient = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: GOOGLE_SCOPE,
+            callback: async (resp) => {
+                if (resp.access_token) {
+                    accessToken = resp.access_token;
+                    showToast("✅ Google 日历授权成功，正在导入航班...");
+                    await importFromGoogleCalendar();
+                } else {
+                    showToast("❌ 授权失败");
+                }
+            },
+        });
+        document.getElementById('googleAuthBtn').onclick = () => {
+            if (tokenClient) tokenClient.requestAccessToken();
+            else showToast("Google 客户端未初始化");
+        };
+    }
+
+    // 从日历读取未来72小时事件，解析航班并合并到 flightsDB
+    async function importFromGoogleCalendar() {
+        if (!accessToken) {
+            showToast("请先授权 Google 日历");
+            return;
+        }
+        const now = new Date();
+        const end = new Date(now.getTime() + 72 * 3600000);
+        const url = `https://www.googleapis.com/calendar/v3/calendars/primary/events?timeMin=${now.toISOString()}&timeMax=${end.toISOString()}&singleEvents=true&orderBy=startTime`;
+        try {
+            const resp = await fetch(url, {
+                headers: { Authorization: `Bearer ${accessToken}` }
+            });
+            const data = await resp.json();
+            if (data.error) {
+                showToast(`日历读取失败: ${data.error.message}`);
+                return;
+            }
+            let importedCount = 0;
+            for (const event of data.items || []) {
+                // 从事件标题或描述中提取两个三字码 (如 "DXB → PVG" 或 "DXB-PVG")
+                const text = (event.summary || "") + " " + (event.description || "");
+                const match = text.match(/\b([A-Z]{3})\b.*?\b([A-Z]{3})\b/);
+                if (!match) continue;
+                const origin = match[1].toUpperCase();
+                const destination = match[2].toUpperCase();
+                const startTime = event.start?.dateTime ? new Date(event.start.dateTime) : null;
+                if (!startTime) continue;
+                // 生成一个临时航班号（从标题中提取或组合）
+                let flightNum = "CAL" + origin + destination;
+                const fnMatch = text.match(/\b([A-Z]{2,3}\d{2,4})\b/);
+                if (fnMatch) flightNum = fnMatch[1];
+                // 检查是否已存在相同航班（同一天、相同航班号、相同起降）
+                const dateStr = startTime.toISOString().split('T')[0];
+                const existing = (flightsDB[dateStr] || []).some(f => 
+                    f.flightNumber === flightNum && f.origin === origin && f.destination === destination
+                );
+                if (!existing) {
+                    if (!flightsDB[dateStr]) flightsDB[dateStr] = [];
+                    flightsDB[dateStr].push({
+                        id: Date.now() + Math.random() + importedCount,
+                        flightNumber: flightNum,
+                        origin: origin,
+                        destination: destination,
+                        departureTime: startTime.toISOString(),
+                        arrivalTime: event.end?.dateTime ? new Date(event.end.dateTime).toISOString() : null,
+                        source: "google_calendar"
+                    });
+                    importedCount++;
+                }
+            }
+            if (importedCount > 0) {
+                // 保存到云端 Gist
+                await saveFlightsToCloud();
+                showToast(`✅ 成功导入 ${importedCount} 个航班`);
+                await refreshDisplay(true);
+            } else {
+                showToast("📅 日历中未发现新的航班事件");
+            }
+        } catch (err) {
+            console.error(err);
+            showToast("读取日历失败，请检查网络或授权");
+        }
+    }
+
+    async function saveFlightsToCloud() {
+        try {
+            let content = JSON.stringify({ flightsDB: flightsDB, lastUpdated: new Date().toISOString() }, null, 2);
+            await fetch(GIST_API, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ files: { 'flight_data.json': { content: content } } })
+            });
+            console.log("航班数据已保存到云端");
+        } catch(e) { console.warn("保存失败", e); }
+    }
+
+    // ==================== 初始化 ====================
     window.addEventListener('load', async () => {
         await refreshDisplay(true);
         setInterval(() => refreshDisplay(false), 300000);
+        // 加载 Google 授权库
+        if (typeof google !== 'undefined' && google.accounts) {
+            initGoogleAuth();
+        } else {
+            console.warn("Google Identity Services 未加载");
+            document.getElementById('googleAuthBtn').style.display = 'none';
+        }
     });
     document.getElementById('manualRefreshBtn').addEventListener('click', () => refreshDisplay(true));
 </script>
