@@ -1,67 +1,1169 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>迪拜飞行时钟 · 终端</title>
-    <style>
-        :root { --bg: #0a0e1a; --text: #eef2f5; --accent: #ffaa44; }
-        * { margin: 0; padding: 0; box-sizing: border-box; user-select: none; }
-        body { background: var(--bg); color: var(--text); font-family: 'SF Pro Display', sans-serif; height: 100vh; overflow: hidden; transition: all 1s ease; }
-        .clock-element { position: absolute; transform: translate(-50%, -50%); transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1); }
-        .clock-text { font-weight: 700; background: linear-gradient(135deg, var(--text), var(--accent)); -webkit-background-clip: text; color: transparent; }
-        .mode-container { width: 100%; height: 100%; position: relative; }
-        .panel { flex: 1; position: relative; border-right: 1px solid rgba(255,255,255,0.05); }
-        .dual-layout, .triple-bottom { display: flex; width: 100%; height: 100%; }
-        .triple-layout { display: flex; flex-direction: column; height: 100%; }
-        .triple-top { height: 30%; background: rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center; font-size: 0.8rem; }
-        .action-btn { position: fixed; bottom: 15px; right: 15px; opacity: 0.2; background: #2a6faa; color: #fff; border: none; padding: 5px 10px; border-radius: 10px; font-size: 0.6rem; z-index: 100; }
-        .action-btn:hover { opacity: 1; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pilot Smart Clock - Ultimate v15 (Complete Fixed)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700;900&family=Outfit:wght@200;300;400;600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+<style>
+:root {
+    --primary: #4dd8ff;
+    --secondary: #ffc857;
+    --success: #39ff9a;
+    --bg-dark: #04091a;
+    --glass: rgba(4, 9, 26, 0.85);
+    --glass-border: rgba(255, 255, 255, 0.15);
+    --gold: #ffd700;
+    --gold-light: #fff5b1;
+    --gold-glow: rgba(255, 215, 0, 0.5);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { width: 100vw; height: 100vh; overflow: hidden; background: var(--bg-dark); color: #fff; font-family: 'Outfit', sans-serif; }
+.hidden { display: none !important; }
+
+/* ===== IDLE MODE ===== */
+#idleMode { position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; }
+#idleBg { position: absolute; inset: 0; z-index: 0; background-size: cover; background-position: center; transition: opacity 2s ease; opacity: 0; }
+#idleBg.visible { opacity: 1; }
+#idleOverlay { position: absolute; inset: 0; z-index: 1; background: linear-gradient(180deg, rgba(4,9,26,0.4) 0%, rgba(4,9,26,0.1) 50%, rgba(4,9,26,0.6) 100%); }
+
+.idle-top { position: absolute; top: 0; left: 0; right: 0; z-index: 10; padding: 30px 40px; display: flex; justify-content: space-between; }
+.idle-card { background: var(--glass); backdrop-filter: blur(15px); padding: 20px; border-radius: 16px; border: 1px solid var(--glass-border); }
+.if-route { font-family: 'Orbitron'; font-size: 24px; font-weight: 900; color: var(--primary); margin-bottom: 10px; }
+.if-detail { font-size: 14px; color: rgba(255,255,255,0.8); display: flex; gap: 15px; }
+.if-pickup { color: var(--success); font-weight: 700; }
+
+.idle-center { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; text-align: center; }
+.ic-time { font-family: 'Orbitron'; font-size: clamp(100px, 22vw, 280px); font-weight: 900; text-shadow: 0 0 60px rgba(255,255,255,0.6); line-height: 1; }
+.ic-date { font-size: 28px; letter-spacing: 0.2em; text-transform: uppercase; margin-top: 30px; font-weight: 600; }
+
+/* ===== UPCOMING MODE ===== */
+#upcomingMode { position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; }
+#upcomingMap { flex: 1; position: relative; z-index: 0; background: #000; }
+.upc-overlay { position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(circle at center, transparent 30%, rgba(4,9,26,0.8) 100%); }
+
+.upc-top-panel { position: absolute; top: 20px; left: 50%; transform: translateX(-50%); z-index: 10; width: 95%; max-width: 1200px; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+.upc-col { background: var(--glass); backdrop-filter: blur(15px); border: 1px solid var(--glass-border); border-radius: 16px; padding: 15px; }
+.upc-title { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; color: rgba(255,255,255,0.5); margin-bottom: 8px; font-weight: 700; }
+.upc-val { font-family: 'Orbitron'; font-size: 18px; font-weight: 700; margin-bottom: 4px; }
+.upc-notam { font-size: 11px; color: var(--secondary); line-height: 1.4; }
+.upc-clothing { font-size: 12px; color: var(--success); margin-top: 5px; font-style: italic; }
+
+.upc-center-clock { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 10; text-align: center; }
+.ucc-time-wrapper { position: relative; display: inline-block; }
+.ucc-time { font-family: 'Orbitron'; font-size: clamp(100px, 22vw, 280px); font-weight: 900; text-shadow: 0 0 80px rgba(0,0,0,0.9), 0 0 30px rgba(77,216,255,0.4); line-height: 1; }
+.ucc-wx-badge { 
+    position: absolute; top: -20px; right: -60px; 
+    background: rgba(4, 9, 26, 0.85); backdrop-filter: blur(15px);
+    padding: 10px 20px; border-radius: 16px; border: 1px solid var(--glass-border);
+    display: flex; align-items: center; gap: 10px;
+}
+.ucc-wx-icon { font-size: 32px; }
+.ucc-wx-temp { font-family: 'Orbitron'; font-size: 24px; font-weight: 700; color: var(--secondary); }
+.ucc-date { font-size: clamp(20px, 4vw, 32px); letter-spacing: 0.2em; text-transform: uppercase; margin-top: 30px; color: rgba(255,255,255,0.9); text-shadow: 0 4px 15px rgba(0,0,0,0.8); font-weight: 600; }
+
+/* ===== FLIGHT MODE (Optimized) ===== */
+#flightMode { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg-dark); }
+
+/* 1. Top Info Area (≈ 1/5 screen) */
+.flight-top-area {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 20vh;
+    z-index: 10;
+    padding: 20px 30px 0;
+    pointer-events: none;
+}
+
+.airport-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+}
+
+.airport-box {
+    display: flex;
+    flex-direction: column;
+    pointer-events: auto;
+}
+
+.airport-code {
+    font-family: 'Orbitron', monospace;
+    font-size: 48px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+.airport-code.departure { color: var(--primary); }
+.airport-code.arrival { color: var(--secondary); }
+
+.airport-name {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.6);
+    margin-bottom: 2px;
+}
+
+.airport-location {
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+    font-weight: 300;
+}
+
+/* Flight Progress - WIDER BAR (no plane icon) */
+.flight-progress-wrapper {
+    position: absolute;
+    left: 50%;
+    top: 20px;
+    transform: translateX(-50%);
+    width: 65%;
+    pointer-events: auto;
+}
+
+.flight-route-info {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: rgba(255,255,255,0.4);
+}
+
+.flight-progress-track {
+    height: 6px; /* WIDER */
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+    position: relative;
+    overflow: visible;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+.flight-progress-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), var(--success));
+    width: 0%;
+    border-radius: 4px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 10px rgba(77, 216, 255, 0.5);
+}
+
+.flight-stats {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 15px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    color: rgba(255,255,255,0.6);
+}
+.flight-stats .stat { display: flex; flex-direction: column; }
+.flight-stats .stat-label { 
+    font-size: 9px; 
+    text-transform: uppercase; 
+    letter-spacing: 0.5px; 
+    color: rgba(255,255,255,0.4); 
+    margin-bottom: 2px; 
+}
+.flight-stats .stat-value { 
+    font-size: 13px; 
+    font-weight: 600; 
+    color: rgba(255,255,255,0.95); 
+}
+
+/* 2. Main Map Area */
+.flightMapContainer {
+    flex: 1;
+    position: relative;
+    z-index: 1;
+    background: #000;
+}
+
+/* 3. Embedded Time/Weather - BOTTOM POSITION */
+.embedded-clock {
+    position: absolute;
+    bottom: 40px;
+    z-index: 20;
+    pointer-events: none;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* Left bottom: Dubai clock */
+.clock-dubai {
+    left: 10%;
+    align-items: flex-start;
+}
+
+/* Right bottom: Destination clock */
+.clock-destination {
+    right: 10%;
+    align-items: flex-end;
+}
+
+.clock-time {
+    font-family: 'Orbitron', monospace;
+    font-size: 64px; /* LARGER */
+    font-weight: 700;
+    line-height: 1;
+    color: var(--gold);
+    text-shadow: 
+        0 0 20px var(--gold-glow),
+        0 0 40px rgba(255, 215, 0, 0.3);
+    letter-spacing: 2px;
+    margin-bottom: 5px;
+    position: relative;
+}
+
+/* Weather badge - positioned at TOP RIGHT of clock */
+.clock-weather {
+    position: absolute;
+    top: 0;
+    right: 0;
+    transform: translate(20px, -20px);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    border-radius: 12px;
+    padding: 6px 12px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    font-family: 'Outfit', sans-serif;
+    font-size: 13px;
+    color: rgba(255,255,255,0.95);
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.clock-weather .temp {
+    color: var(--gold-light);
+    font-weight: 600;
+    font-size: 14px;
+}
+
+.clock-weather .icon {
+    font-size: 16px;
+    filter: drop-shadow(0 0 4px rgba(255, 255, 255, 0.3));
+}
+
+.clock-city {
+    font-size: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    color: rgba(255, 255, 255, 0.8);
+    margin-top: 5px;
+}
+
+.clock-dubai .clock-city { 
+    color: var(--primary);
+    text-shadow: 0 0 10px rgba(77, 216, 255, 0.3);
+}
+.clock-destination .clock-city { 
+    color: var(--secondary);
+    text-shadow: 0 0 10px rgba(255, 200, 87, 0.3);
+}
+
+/* Aircraft status badge */
+.aircraft-status {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    background: rgba(255, 179, 71, 0.15);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255, 179, 71, 0.3);
+    border-radius: 12px;
+    padding: 8px 16px;
+    font-family: 'Orbitron', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: var(--secondary);
+    pointer-events: auto;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+}
+
+/* Flight phase indicators */
+.phase-indicators {
+    position: absolute;
+    bottom: 100px;
+    left: 30px;
+    display: flex;
+    gap: 20px;
+    pointer-events: none;
+}
+.phase {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.phase-name {
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: rgba(255,255,255,0.4);
+    margin-bottom: 4px;
+}
+.phase-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+}
+.phase.active .phase-dot {
+    background: var(--success);
+    box-shadow: 0 0 8px var(--success);
+}
+.phase.active .phase-name {
+    color: var(--success);
+}
+
+/* ===== LAYOVER MODE ===== */
+#layoverMode { position: fixed; inset: 0; z-index: 1; display: flex; flex-direction: column; }
+.lo-top-bar { 
+    flex: 0 0 auto; background: linear-gradient(180deg, rgba(4,9,26,0.95) 0%, rgba(4,9,26,0.8) 90%, transparent 100%); 
+    padding: 25px 40px; z-index: 10; border-bottom: 1px solid var(--glass-border);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.lo-flight-info { text-align: left; }
+.lo-label { font-size: 10px; text-transform: uppercase; color: rgba(255,255,255,0.5); letter-spacing: 1px; }
+.lo-location { font-family: 'Orbitron'; font-size: 22px; font-weight: 700; color: var(--secondary); margin-bottom: 5px; }
+.lo-route { font-family: 'Orbitron'; font-size: 24px; font-weight: 900; color: var(--primary); margin: 5px 0; }
+.lo-times { display: flex; gap: 20px; font-size: 15px; }
+.lo-time-val { color: #fff; font-weight: 600; }
+.lo-countdown { font-family: 'Orbitron'; font-size: 32px; color: var(--success); font-weight: 700; text-align: right; }
+
+.lo-split { flex: 1; display: grid; grid-template-columns: 1fr 1fr; position: relative; }
+.lo-side { position: relative; display: flex; flex-direction: column; justify-content: center; align-items: center; overflow: hidden; }
+.lo-bg { position: absolute; inset: 0; background-size: cover; background-position: center; opacity: 0.7; transition: all 1s ease; }
+.lo-overlay { position: absolute; inset: 0; background: rgba(4,9,26,0.4); }
+.lo-content { position: relative; z-index: 2; text-align: center; }
+
+.lo-time-wrapper { display: flex; align-items: flex-start; justify-content: center; gap: 20px; margin-bottom: 15px; }
+.lo-main-time { font-family: 'Orbitron'; font-size: clamp(60px, 12vw, 120px); font-weight: 900; line-height: 1; }
+.lo-wx-badge { 
+    display: flex; flex-direction: column; align-items: flex-end; 
+    font-family: 'Orbitron'; font-size: 22px; font-weight: 700; color: var(--secondary);
+    margin-top: 15px; 
+}
+.lo-wx-icon { font-size: 32px; margin-bottom: 2px; }
+
+.lo-city-name { font-size: 24px; font-weight: 600; letter-spacing: 3px; text-transform: uppercase; margin-top: 15px; }
+.lo-divider { position: absolute; left: 50%; top: 0; bottom: 0; width: 2px; background: rgba(255,255,255,0.2); transform: translateX(-50%); z-index: 5; }
+
+/* Demo Button */
+#dmBtn { 
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); 
+    z-index: 2000; background: rgba(0,0,0,0.8); border: 1px solid #fff; 
+    color: #fff; padding: 12px 30px; border-radius: 30px; cursor: pointer; 
+    font-weight: 700; font-size: 14px; 
+}
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.6; } 100% { opacity: 1; } }
+</style>
 </head>
 <body>
-<div id="app"></div>
-<button class="action-btn" onclick="syncAll()">🔄 强制同步</button>
 
+<!-- 1. IDLE MODE -->
+<div id="idleMode" class="hidden">
+    <div id="idleBg"></div>
+    <div id="idleOverlay"></div>
+    <div class="idle-top">
+        <div class="idle-card">
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;">Next Flight</div>
+            <div class="if-route" id="idleRoute">EK303 DXB → LHR</div>
+            <div class="if-detail">
+                <span id="idleDepDate">29 Apr</span>
+                <span id="idleDepTime">14:35</span>
+                <span class="if-pickup" id="idlePickup">🚗 12:20</span>
+            </div>
+        </div>
+        <div class="idle-card" style="text-align:right;">
+            <div style="font-size:10px;color:rgba(255,255,255,0.5);text-transform:uppercase;">Dubai Weather</div>
+            <div style="font-family:'Orbitron';font-size:32px;font-weight:700;" id="idleWxTemp">34° ☀️</div>
+            <div style="font-size:14px;color:rgba(255,255,255,0.7);" id="idleWxDesc">Clear Sky</div>
+        </div>
+    </div>
+    <div class="idle-center">
+        <div class="ic-time" id="idleTime">12:00</div>
+        <div class="ic-date" id="idleDate">Monday 28 April</div>
+    </div>
+</div>
+
+<!-- 2. UPCOMING MODE -->
+<div id="upcomingMode" class="hidden">
+    <div id="upcomingMap"></div>
+    <div class="upc-overlay"></div>
+    <div class="upc-top-panel">
+        <div class="upc-col">
+            <div class="upc-title">Flight Details</div>
+            <div class="upc-val" style="color:var(--primary)" id="upcFlightNo">EK303</div>
+            <div class="upc-val" id="upcRoute">DXB → LHR</div>
+            <div class="upc-val" style="color:var(--success)">Pickup: 12:20</div>
+        </div>
+        <div class="upc-col">
+            <div class="upc-title">Destination Weather</div>
+            <div class="upc-val" id="upcDestWx">12°C 🌧</div>
+            <div class="upc-clothing" id="upcClothing">Wear a raincoat + umbrella</div>
+        </div>
+        <div class="upc-col">
+            <div class="upc-title" style="color:var(--secondary)">⚠ Airport Notices</div>
+            <div class="upc-notam">Runway 24R closed for maintenance tonight.</div>
+            <div class="upc-notam">Expect moderate turbulence over Turkey.</div>
+        </div>
+    </div>
+    <div class="upc-center-clock">
+        <div class="ucc-time-wrapper">
+            <div class="ucc-time" id="upcTime">12:00</div>
+            <div class="ucc-wx-badge">
+                <span class="ucc-wx-icon" id="upcWxIcon">☀️</span>
+                <span class="ucc-wx-temp" id="upcWxTemp">34°</span>
+            </div>
+        </div>
+        <div class="ucc-date" id="upcDate">Monday 28 April</div>
+    </div>
+</div>
+
+<!-- 3. FLIGHT MODE (Optimized) -->
+<div id="flightMode" class="hidden">
+    <!-- 1. Top Area -->
+    <div class="flight-top-area">
+        <div class="airport-row">
+            <div class="airport-box">
+                <div class="airport-code departure" id="depCode">DXB</div>
+                <div class="airport-name" id="depName">Dubai International</div>
+                <div class="airport-location" id="depLocation">Dubai, United Arab Emirates</div>
+            </div>
+            <div class="airport-box" style="align-items: flex-end;">
+                <div class="airport-code arrival" id="arrCode">LHR</div>
+                <div class="airport-name" id="arrName">London Heathrow</div>
+                <div class="airport-location" id="arrLocation">London, United Kingdom</div>
+            </div>
+        </div>
+
+        <div class="flight-progress-wrapper">
+            <div class="flight-route-info">
+                <span id="flightNo">EK303</span>
+                <span>B777-300ER</span>
+            </div>
+            <div class="flight-progress-track">
+                <div class="flight-progress-fill" id="flightProgressFill"></div>
+            </div>
+            <div class="flight-stats">
+                <div class="stat">
+                    <span class="stat-label">Time flown</span>
+                    <span class="stat-value" id="timeFlown">01:45</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Dist flown</span>
+                    <span class="stat-value" id="distFlown">1,240 km</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Time rem</span>
+                    <span class="stat-value" id="timeRem">04:15</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-label">Dist rem</span>
+                    <span class="stat-value" id="distRem">3,760 km</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="aircraft-status" id="flightStatus">En route</div>
+    </div>
+
+    <!-- 2. Main Map -->
+    <div class="flightMapContainer" id="flightMap"></div>
+
+    <!-- 3. Embedded Clocks - BOTTOM POSITION -->
+    <div class="embedded-clock clock-dubai">
+        <div class="clock-time-wrapper">
+            <div class="clock-time" id="dubaiTime">12:00</div>
+            <div class="clock-weather" id="dubaiWeather">
+                <span class="icon">☀️</span>
+                <span class="temp" id="dubaiTemp">34°C</span>
+                <span class="desc">Sunny</span>
+            </div>
+        </div>
+        <div class="clock-city">Dubai</div>
+    </div>
+
+    <div class="embedded-clock clock-destination">
+        <div class="clock-time-wrapper">
+            <div class="clock-time" id="destTime">09:00</div>
+            <div class="clock-weather" id="destWeather">
+                <span class="icon">🌧</span>
+                <span class="temp" id="destTemp">12°C</span>
+                <span class="desc">Light rain</span>
+            </div>
+        </div>
+        <div class="clock-city">London</div>
+    </div>
+
+    <!-- Flight phases -->
+    <div class="phase-indicators">
+        <div class="phase active" id="phasePushback">
+            <div class="phase-name">Push</div>
+            <div class="phase-dot"></div>
+        </div>
+        <div class="phase" id="phaseTakeoff">
+            <div class="phase-name">Takeoff</div>
+            <div class="phase-dot"></div>
+        </div>
+        <div class="phase" id="phaseClimb">
+            <div class="phase-name">Climb</div>
+            <div class="phase-dot"></div>
+        </div>
+        <div class="phase" id="phaseCruise">
+            <div class="phase-name">Cruise</div>
+            <div class="phase-dot"></div>
+        </div>
+        <div class="phase" id="phaseDescent">
+            <div class="phase-name">Descent</div>
+            <div class="phase-dot"></div>
+        </div>
+        <div class="phase" id="phaseLanding">
+            <div class="phase-name">Land</div>
+            <div class="phase-dot"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 4. LAYOVER MODE -->
+<div id="layoverMode" class="hidden">
+    <div class="lo-top-bar">
+        <div class="lo-flight-info">
+            <div class="lo-label">Currently in</div>
+            <div class="lo-location" id="loLocation">United Kingdom · London</div>
+            <div class="lo-route" id="loFlightRoute">EK304 LHR → DXB</div>
+            <div class="lo-times">
+                <span>Local: <span class="lo-time-val" id="loLocalDep">18:00</span></span>
+                <span>Dubai: <span class="lo-time-val" id="loDubaiDep">22:00</span></span>
+            </div>
+        </div>
+        <div>
+            <div class="lo-label">Countdown to Departure</div>
+            <div class="lo-countdown" id="loCountdown">08h 30m</div>
+        </div>
+    </div>
+    <div class="lo-split">
+        <div class="lo-divider"></div>
+        <!-- Left: Dubai -->
+        <div class="lo-side">
+            <div class="lo-bg" id="loDubaiBg"></div>
+            <div class="lo-overlay"></div>
+            <div class="lo-content">
+                <div class="lo-time-wrapper">
+                    <div class="lo-main-time" id="loDubaiTime">12:00</div>
+                    <div class="lo-wx-badge">
+                        <span class="lo-wx-icon" id="loDubaiWxIcon">☀️</span>
+                        <span id="loDubaiWxTemp">34°</span>
+                    </div>
+                </div>
+                <div class="lo-city-name">Dubai 🇦🇪</div>
+            </div>
+        </div>
+        <!-- Right: Destination -->
+        <div class="lo-side">
+            <div class="lo-bg" id="loDestBg"></div>
+            <div class="lo-overlay"></div>
+            <div class="lo-content">
+                <div class="lo-time-wrapper">
+                    <div class="lo-main-time" id="loDestTime">09:00</div>
+                    <div class="lo-wx-badge">
+                        <span class="lo-wx-icon" id="loDestWxIcon">🌧</span>
+                        <span id="loDestWxTemp">12°</span>
+                    </div>
+                </div>
+                <div class="lo-city-name" id="loDestCityName">London 🇬🇧</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<button id="dmBtn" onclick="toggleDemo()">🎮 Switch Mode</button>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-    const GIST_ID = "6b51ae2b894903de0227eaec5e0ce842";
-    const GIST_URL = `https://api.github.com/gists/${GIST_ID}`;
-    let layoutConfig = null;
-    let flightsDB = {};
+// ==========================================
+// 🔑 CONFIGURATION
+// ==========================================
+const API_KEYS = {
+    PEXELS: 'HausAhD3bnoBXexI6n3FFaRYUZwEgMXvEe8TMBCSVvyQk6HeJltziTqm',
+    AVIATIONSTACK: 'b4bd321bbba1723162801cce3c455d7c'
+};
 
-    async function syncAll() {
-        try {
-            // 核心：添加 nocache 参数破除 GitHub 缓存
-            const resp = await fetch(`${GIST_URL}?nocache=${Date.now()}`, { cache: 'no-store' });
-            const data = await resp.json();
+const AIRPORTS = {
+    DXB: { 
+        code: 'DXB', 
+        name: 'Dubai International', 
+        city: 'Dubai', 
+        country: 'United Arab Emirates', 
+        tz: 'Asia/Dubai', 
+        lat: 25.2532, 
+        lon: 55.3657 
+    },
+    LHR: { 
+        code: 'LHR', 
+        name: 'London Heathrow', 
+        city: 'London', 
+        country: 'United Kingdom', 
+        tz: 'Europe/London', 
+        lat: 51.4700, 
+        lon: -0.4543 
+    }
+};
+
+// Flight configuration
+const FLIGHT = {
+    number: 'EK303',
+    aircraft: 'B777-300ER',
+    departure: AIRPORTS.DXB,
+    arrival: AIRPORTS.LHR,
+    departureTime: new Date(Date.now() - 1.75 * 3600 * 1000), // 1h45 ago
+    arrivalTime: new Date(Date.now() + 4.25 * 3600 * 1000),   // 4h15 to go
+    totalDistance: 5500, // km
+    phases: ['pushback', 'takeoff', 'climb', 'cruise', 'descent', 'landing'],
+    currentPhase: 2 // climb phase
+};
+
+// ==========================================
+// 🎮 STATE MANAGEMENT
+// ==========================================
+let STATE = { 
+    mode: 'idle', 
+    map: null, 
+    planeMarker: null, 
+    routeLine: null, 
+    flownLine: null,
+    upcomingMap: null,  // Separate map instance for upcoming mode
+    upcomingRoute: null,
+    tick: 0 
+};
+let simulationActive = true;
+let flightProgress = 0.225; // Start at 22.5%
+
+// ==========================================
+// 🖼️ IDLE MODE
+// ==========================================
+async function updateIdleBackground() {
+    const h = parseInt(new Date().toLocaleTimeString('en-US', { hour:'2-digit', hour12:false, timeZone:'Asia/Dubai' }));
+    let query = 'dubai skyline';
+    if(h >= 5 && h < 7) query = 'dubai sunrise burj khalifa';
+    else if(h >= 7 && h < 17) query = 'dubai city day architecture';
+    else if(h >= 17 && h < 20) query = 'dubai sunset marina';
+    else query = 'dubai night lights skyline';
+
+    try {
+        const response = await fetch(`https://api.pexels.com/v1/search?query=${encodeURIComponent(query)}&per_page=1&page=${Math.floor(Math.random() * 10) + 1}`, {
+            headers: { Authorization: API_KEYS.PEXELS }
+        });
+        const data = await response.json();
+        if (data.photos && data.photos.length > 0) {
+            const imgUrl = data.photos[0].src.large2x || data.photos[0].src.large;
+            const bgDiv = document.getElementById('idleBg');
+            bgDiv.style.backgroundImage = `url('${imgUrl}')`;
+            bgDiv.classList.add('visible');
+        }
+    } catch (e) {
+        console.warn("Pexels API failed, using fallback");
+        document.getElementById('idleBg').style.backgroundImage = "url('https://images.pexels.com/photos/3573382/pexels-photo-3573382.jpeg')";
+        document.getElementById('idleBg').classList.add('visible');
+    }
+}
+
+// ==========================================
+// 🗺️ MAP ENGINE - UPCOMING MODE
+// ==========================================
+function initUpcomingMap() {
+    if (STATE.upcomingMap) {
+        STATE.upcomingMap.remove();
+        STATE.upcomingMap = null;
+    }
+
+    const el = document.getElementById('upcomingMap');
+    if (!el) return;
+
+    el.style.width = '100%';
+    el.style.height = '100%';
+
+    STATE.upcomingMap = L.map('upcomingMap', {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: false
+    });
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 8,
+        minZoom: 2
+    }).addTo(STATE.upcomingMap);
+
+    L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
+        maxZoom: 8,
+        minZoom: 2,
+        opacity: 0.4
+    }).addTo(STATE.upcomingMap);
+
+    STATE.upcomingMap.invalidateSize();
+    
+    // Draw route
+    drawUpcomingRoute();
+}
+
+function drawUpcomingRoute() {
+    if (!STATE.upcomingMap) return;
+    
+    const { departure, arrival } = FLIGHT;
+    
+    // Clear previous route
+    if (STATE.upcomingRoute) {
+        STATE.upcomingMap.removeLayer(STATE.upcomingRoute);
+    }
+    
+    // Create points for great circle
+    const points = [];
+    const steps = 50;
+    for(let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const lat = departure.lat + (arrival.lat - departure.lat) * t;
+        const lon = departure.lon + (arrival.lon - departure.lon) * t;
+        points.push([lat, lon]);
+    }
+    
+    // Draw route
+    STATE.upcomingRoute = L.polyline(points, { 
+        color: '#4dd8ff', 
+        weight: 3, 
+        opacity: 0.8, 
+        dashArray: '10,10' 
+    }).addTo(STATE.upcomingMap);
+    
+    // Add airport markers
+    L.circleMarker([departure.lat, departure.lon], { 
+        radius: 8, 
+        color: '#fff', 
+        fillColor: '#4dd8ff', 
+        fillOpacity: 1,
+        weight: 2
+    }).addTo(STATE.upcomingMap)
+    .bindTooltip(`DXB - Dubai`, { permanent: false, direction: 'top' });
+    
+    L.circleMarker([arrival.lat, arrival.lon], { 
+        radius: 8, 
+        color: '#fff', 
+        fillColor: '#ffc857', 
+        fillOpacity: 1,
+        weight: 2
+    }).addTo(STATE.upcomingMap)
+    .bindTooltip(`LHR - London`, { permanent: false, direction: 'top' });
+    
+    // Fit bounds
+    const bounds = L.latLngBounds(points);
+    STATE.upcomingMap.fitBounds(bounds, { padding: [50, 50] });
+}
+
+// ==========================================
+// 🗺️ MAP ENGINE - FLIGHT MODE
+// ==========================================
+function initFlightMap() {
+    if (STATE.map) {
+        STATE.map.remove();
+        STATE.map = null;
+    }
+
+    const el = document.getElementById('flightMap');
+    if (!el) {
+        console.error("Flight map container not found!");
+        return;
+    }
+
+    el.style.width = '100%';
+    el.style.height = '100%';
+    el.style.position = 'absolute';
+    el.style.top = '0';
+    el.style.left = '0';
+
+    STATE.map = L.map('flightMap', {
+        zoomControl: false,
+        attributionControl: false,
+        dragging: false,
+        scrollWheelZoom: false,
+        touchZoom: false,
+        doubleClickZoom: false
+    });
+
+    L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+        maxZoom: 8,
+        minZoom: 2
+    }).addTo(STATE.map);
+
+    L.tileLayer('https://cartodb-basemaps-{s}.global.ssl.fastly.net/dark_all/{z}/{x}/{y}.png', {
+        maxZoom: 8,
+        minZoom: 2,
+        opacity: 0.4
+    }).addTo(STATE.map);
+
+    const planeIcon = L.divIcon({
+        className: 'aircraft-icon',
+        html: `
+            <div style="
+                position: relative;
+                width: 32px;
+                height: 32px;
+                transform: rotate(-45deg);
+                filter: drop-shadow(0 0 8px #4dd8ff) drop-shadow(0 0 4px #4dd8ff);
+            ">
+                <div style="
+                    font-size: 28px;
+                    color: white;
+                    text-shadow: 0 0 10px #4dd8ff;
+                ">✈️</div>
+            </div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16]
+    });
+
+    STATE.planeMarker = L.marker([0, 0], { icon: planeIcon }).addTo(STATE.map);
+    
+    // Draw initial flight route
+    drawFlightRoute();
+    
+    STATE.map.invalidateSize();
+    console.log("Flight map initialized successfully");
+}
+
+function drawFlightRoute() {
+    if (!STATE.map) return;
+    
+    const { departure, arrival } = FLIGHT;
+    
+    // Clear previous layers
+    if (STATE.routeLine) {
+        STATE.map.removeLayer(STATE.routeLine);
+    }
+    if (STATE.flownLine) {
+        STATE.map.removeLayer(STATE.flownLine);
+    }
+    
+    // Create points for great circle
+    const points = [];
+    const steps = 50;
+    for(let i = 0; i <= steps; i++) {
+        const t = i / steps;
+        const lat = departure.lat + (arrival.lat - departure.lat) * t;
+        const lon = departure.lon + (arrival.lon - departure.lon) * t;
+        points.push([lat, lon]);
+    }
+    
+    // Draw full route (dashed)
+    STATE.routeLine = L.polyline(points, { 
+        color: 'rgba(255, 255, 255, 0.3)', 
+        weight: 2, 
+        opacity: 0.5,
+        dashArray: '8, 6'
+    }).addTo(STATE.map);
+    
+    // Initialize flown line
+    STATE.flownLine = L.polyline([], { 
+        color: '#4dd8ff', 
+        weight: 4, 
+        opacity: 0.9 
+    }).addTo(STATE.map);
+    
+    // Add airport markers
+    L.circleMarker([departure.lat, departure.lon], { 
+        radius: 8, 
+        color: '#fff', 
+        fillColor: '#4dd8ff', 
+        fillOpacity: 1,
+        weight: 2
+    }).addTo(STATE.map)
+    .bindTooltip(`DXB - Dubai`, { permanent: false, direction: 'top' });
+    
+    L.circleMarker([arrival.lat, arrival.lon], { 
+        radius: 8, 
+        color: '#fff', 
+        fillColor: '#ffc857', 
+        fillOpacity: 1,
+        weight: 2
+    }).addTo(STATE.map)
+    .bindTooltip(`LHR - London`, { permanent: false, direction: 'top' });
+    
+    // Fit bounds
+    const bounds = L.latLngBounds(points);
+    STATE.map.fitBounds(bounds, { padding: [80, 80] });
+}
+
+function updateFlightMap() {
+    if (!STATE.map || !STATE.planeMarker) return;
+    
+    const { departure, arrival } = FLIGHT;
+    
+    const now = new Date();
+    const elapsed = (now - FLIGHT.departureTime) / 1000;
+    const total = (FLIGHT.arrivalTime - FLIGHT.departureTime) / 1000;
+    flightProgress = Math.max(0, Math.min(1, elapsed / total));
+    
+    const lat = departure.lat + (arrival.lat - departure.lat) * flightProgress;
+    const lon = departure.lon + (arrival.lon - departure.lon) * flightProgress;
+    
+    // Update aircraft position
+    STATE.planeMarker.setLatLng([lat, lon]);
+    
+    // Rotate aircraft based on direction
+    if (flightProgress > 0.01 && flightProgress < 0.99) {
+        const prevLat = departure.lat + (arrival.lat - departure.lat) * (flightProgress - 0.01);
+        const prevLon = departure.lon + (arrival.lon - departure.lon) * (flightProgress - 0.01);
+        const bearing = Math.atan2(lon - prevLon, lat - prevLat) * 180 / Math.PI;
+        
+        const iconElement = STATE.planeMarker.getElement();
+        if (iconElement) {
+            iconElement.style.transform = `rotate(${-45 + bearing}deg)`;
+        }
+    }
+    
+    // Update flown route
+    if (STATE.flownLine) {
+        const flownPoints = [];
+        for (let i = 0; i <= Math.floor(flightProgress * 50); i++) {
+            const t = i / 50;
+            const pointLat = departure.lat + (arrival.lat - departure.lat) * t;
+            const pointLon = departure.lon + (arrival.lon - departure.lon) * t;
+            flownPoints.push([pointLat, pointLon]);
+        }
+        STATE.flownLine.setLatLngs(flownPoints);
+    }
+    
+    // Smooth pan to aircraft
+    STATE.map.panTo([lat, lon], { animate: true, duration: 1.5 });
+}
+
+// ==========================================
+// ⏰ TIME & WEATHER UTILS
+// ==========================================
+function formatTime(tz) { 
+    return new Date().toLocaleTimeString('en-US', { 
+        hour:'2-digit', 
+        minute:'2-digit', 
+        hour12:false, 
+        timeZone:tz 
+    }); 
+}
+
+function formatTimeShort(tz) {
+    return new Date().toLocaleTimeString('en-US', { 
+        hour:'2-digit', 
+        minute:'2-digit', 
+        hour12:false, 
+        timeZone:tz 
+    });
+}
+
+// ==========================================
+// ✈️ FLIGHT MODE SPECIFIC
+// ==========================================
+function updateFlightProgressUI() {
+    const now = new Date();
+    const elapsed = (now - FLIGHT.departureTime) / 1000;
+    const remaining = (FLIGHT.arrivalTime - now) / 1000;
+    const total = (FLIGHT.arrivalTime - FLIGHT.departureTime) / 1000;
+    
+    flightProgress = Math.max(0, Math.min(1, elapsed / total));
+    
+    document.getElementById('flightProgressFill').style.width = `${flightProgress * 100}%`;
+    
+    document.getElementById('timeFlown').textContent = formatFlightTime(elapsed);
+    document.getElementById('timeRem').textContent = formatFlightTime(remaining);
+    
+    const flownDist = Math.round(FLIGHT.totalDistance * flightProgress);
+    const remDist = Math.round(FLIGHT.totalDistance * (1 - flightProgress));
+    document.getElementById('distFlown').textContent = `${flownDist.toLocaleString()} km`;
+    document.getElementById('distRem').textContent = `${remDist.toLocaleString()} km`;
+    
+    const statusEl = document.getElementById('flightStatus');
+    if (flightProgress < 0.1) {
+        statusEl.textContent = 'PUSHBACK';
+        statusEl.style.background = 'rgba(255, 179, 71, 0.15)';
+        statusEl.style.borderColor = 'rgba(255, 179, 71, 0.3)';
+        statusEl.style.color = '#ffc857';
+    } else if (flightProgress < 0.2) {
+        statusEl.textContent = 'TAKEOFF';
+    } else if (flightProgress < 0.4) {
+        statusEl.textContent = 'CLIMB';
+    } else if (flightProgress < 0.8) {
+        statusEl.textContent = 'CRUISE';
+    } else if (flightProgress < 0.95) {
+        statusEl.textContent = 'DESCENT';
+    } else {
+        statusEl.textContent = 'APPROACH';
+    }
+    
+    updatePhaseIndicators();
+}
+
+function updatePhaseIndicators() {
+    const phases = ['pushback', 'takeoff', 'climb', 'cruise', 'descent', 'landing'];
+    let activePhase = 0;
+    
+    if (flightProgress < 0.05) activePhase = 0;
+    else if (flightProgress < 0.1) activePhase = 1;
+    else if (flightProgress < 0.3) activePhase = 2;
+    else if (flightProgress < 0.8) activePhase = 3;
+    else if (flightProgress < 0.95) activePhase = 4;
+    else activePhase = 5;
+    
+    phases.forEach((phase, idx) => {
+        const el = document.getElementById(`phase${phase.charAt(0).toUpperCase() + phase.slice(1)}`);
+        if (idx === activePhase) {
+            el.classList.add('active');
+        } else if (idx < activePhase) {
+            el.classList.add('active');
+        } else {
+            el.classList.remove('active');
+        }
+    });
+}
+
+function updateFlightTimeAndWeather() {
+    document.getElementById('dubaiTime').textContent = formatTimeShort(AIRPORTS.DXB.tz);
+    document.getElementById('destTime').textContent = formatTimeShort(AIRPORTS.LHR.tz);
+    
+    const now = new Date();
+    const hour = now.getUTCHours();
+    
+    if (hour >= 6 && hour < 18) {
+        document.getElementById('dubaiTemp').textContent = '34°C';
+        document.getElementById('dubaiWeather').querySelector('.desc').textContent = 'Sunny';
+        document.getElementById('dubaiWeather').querySelector('.icon').textContent = '☀️';
+    } else {
+        document.getElementById('dubaiTemp').textContent = '28°C';
+        document.getElementById('dubaiWeather').querySelector('.desc').textContent = 'Clear';
+        document.getElementById('dubaiWeather').querySelector('.icon').textContent = '🌙';
+    }
+    
+    const londonTemp = 8 + Math.sin(now.getHours() * 0.26) * 4;
+    document.getElementById('destTemp').textContent = `${Math.round(londonTemp)}°C`;
+    
+    if (flightProgress > 0.7) {
+        document.getElementById('destWeather').querySelector('.desc').textContent = 'Light rain';
+        document.getElementById('destWeather').querySelector('.icon').textContent = '🌧';
+    } else {
+        document.getElementById('destWeather').querySelector('.desc').textContent = 'Cloudy';
+        document.getElementById('destWeather').querySelector('.icon').textContent = '☁️';
+    }
+}
+
+function simulateFlight() {
+    if (!simulationActive || STATE.mode !== 'flight') return;
+    
+    flightProgress += 0.0002;
+    if (flightProgress > 1) flightProgress = 0;
+    
+    updateFlightMap();
+    updateFlightProgressUI();
+    updateFlightTimeAndWeather();
+}
+
+function formatFlightTime(seconds) {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+}
+
+// ==========================================
+// 🔄 MODE SWITCHING
+// ==========================================
+function switchMode(mode) {
+    STATE.mode = mode;
+    ['idleMode','upcomingMode','flightMode','layoverMode'].forEach(id => 
+        document.getElementById(id).classList.add('hidden')
+    );
+    
+    const modeElement = document.getElementById(mode + 'Mode');
+    if (modeElement) {
+        modeElement.classList.remove('hidden');
+    }
+    
+    switch(mode) {
+        case 'idle':
+            updateIdleBackground();
+            break;
             
-            layoutConfig = JSON.parse(data.files['clock_layout.json'].content);
-            flightsDB = JSON.parse(data.files['flight_data.json'].content).flightsDB || {};
+        case 'upcoming':
+            setTimeout(() => {
+                initUpcomingMap();
+            }, 100);
+            break;
             
-            applyTheme();
-            renderLayout();
-        } catch (e) { console.error("Sync Error:", e); }
+        case 'flight':
+            setTimeout(() => {
+                initFlightMap();
+                updateFlightMap();
+                updateFlightProgressUI();
+                updateFlightTimeAndWeather();
+                updatePhaseIndicators();
+            }, 100);
+            break;
+            
+        case 'layover':
+            document.getElementById('loDubaiBg').style.backgroundImage = 
+                "url('https://images.pexels.com/photos/3573382/pexels-photo-3573382.jpeg?auto=compress&cs=tinysrgb&w=1920')";
+            document.getElementById('loDestBg').style.backgroundImage = 
+                "url('https://images.pexels.com/photos/2363175/pexels-photo-2363175.jpeg?auto=compress&cs=tinysrgb&w=1920')";
+            break;
     }
+}
 
-    function applyTheme() {
-        if (!layoutConfig) return;
-        const isDay = new Date().getHours() > 6 && new Date().getHours() < 18;
-        const colors = layoutConfig.colors;
-        document.documentElement.style.setProperty('--bg', isDay ? colors.dayBg : colors.nightBg);
-        document.documentElement.style.setProperty('--text', isDay ? colors.dayText : colors.nightText);
-        document.documentElement.style.setProperty('--accent', colors.accentColor);
+function updateUI() {
+    STATE.tick++;
+    
+    switch(STATE.mode) {
+        case 'idle':
+            document.getElementById('idleTime').textContent = formatTime('Asia/Dubai');
+            if (STATE.tick % 60 === 0) updateIdleBackground();
+            break;
+            
+        case 'upcoming':
+            document.getElementById('upcTime').textContent = formatTime('Asia/Dubai');
+            break;
+            
+        case 'flight':
+            simulateFlight();
+            break;
+            
+        case 'layover':
+            document.getElementById('loDubaiTime').textContent = formatTime('Asia/Dubai');
+            document.getElementById('loDestTime').textContent = formatTime('Europe/London');
+            break;
     }
+}
 
-    function renderLayout() {
-        const app = document.getElementById('app');
-        app.innerHTML = ''; 
-        // 渲染逻辑：根据航班状态判断 Single/Dual/Triple 并应用 layoutConfig 中的 left/top/fontSize
-        // 此处逻辑与之前版本一致，但样式应用函数改为读取 layoutConfig
-        console.log("布局已刷新:", layoutConfig.single.clock.left);
-    }
+// ==========================================
+// 🎮 DEMO CONTROLS
+// ==========================================
+let demoIdx = 0;
+function toggleDemo() {
+    demoIdx = (demoIdx + 1) % 4;
+    const modes = ['idle', 'upcoming', 'flight', 'layover'];
+    switchMode(modes[demoIdx]);
+}
 
-    setInterval(syncAll, 30000); // 30秒静默同步一次
-    window.onload = syncAll;
+// ==========================================
+// 🚀 INITIALIZATION
+// ==========================================
+window.onload = () => {
+    setInterval(updateUI, 1000);
+    switchMode('idle');
+};
 </script>
 </body>
 </html>
